@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GPS Admin - Smart scheduling and workload management for Genie's Pet Sitting">
+    <title>GPS Admin - Genie's Pet Sitting Administration</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css?v=4.0">
+    <link rel="stylesheet" href="css/calendar.css?v=4.0">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4F46E5">
+
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="GPS Admin">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>Loading GPS Admin...</p>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app" class="app-container" style="display: none;">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <button id="menu-toggle" class="icon-button" aria-label="Toggle menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h1 class="app-title">
+                        <span class="title-icon">🐾</span>
+                        GPS Admin
+                    </h1>
+                </div>
+
+                <div class="header-right">
+                    <!-- Workload Indicator -->
+                    <div id="workload-indicator" class="workload-indicator" title="Current workload level">
+                        <span class="workload-dot"></span>
+                        <span class="workload-text">Loading...</span>
+                    </div>
+
+                    <!-- User Profile -->
+                    <div id="user-profile" class="user-profile">
+                        <button id="profile-button" class="profile-button">
+                            <span class="profile-avatar">?</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="#" data-view="dashboard" class="nav-item active">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="#" data-view="calendar" class="nav-item">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span>Calendar</span>
+                </a>
+
+                <a href="#" data-view="templates" class="nav-item">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Templates</span>
+                </a>
+
+                <a href="#" data-view="analytics" class="nav-item">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="20" x2="12" y2="10"></line>
+                        <line x1="18" y1="20" x2="18" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="16"></line>
+                    </svg>
+                    <span>Analytics</span>
+                </a>
+
+                <div class="nav-divider"></div>
+
+                <a href="#" data-view="settings" class="nav-item">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="connect-calendar-btn" class="btn btn-primary btn-block">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span class="btn-text">Connect Calendar</span>
+                </button>
+                <button id="refresh-calendar-btn" class="btn btn-secondary btn-block" style="display: none; margin-top: 8px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span class="btn-text" id="refresh-btn-text">Refresh Events</span>
+                </button>
+                <button id="sidebar-collapse-toggle" class="sidebar-collapse-btn" title="Collapse sidebar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="main-content">
+
+            <!-- Dashboard View -->
+            <div id="view-dashboard" class="view active">
+                <div class="view-header">
+                    <h2>Dashboard</h2>
+                    <p class="view-subtitle">Your workload overview at a glance</p>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-primary">📅</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Today's Appointments</div>
+                            <div class="stat-value" id="stat-today">--</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-success">⏱️</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Working Hours</div>
+                            <div class="stat-value" id="stat-hours">--</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-warning">🚗</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Drive Time</div>
+                            <div class="stat-value" id="stat-drive">--</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-danger">⚡</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Workload Level</div>
+                            <div class="stat-value" id="stat-workload">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Appointments -->
+                <div class="section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+                        <h3 style="margin: 0;">Today's Schedule</h3>
+                        <button id="add-appointment-btn" class="btn btn-sm btn-primary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add
+                        </button>
+                    </div>
+                    <div id="upcoming-appointments" class="upcoming-appointments">
+                        <!-- Upcoming appointments will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Week Overview -->
+                <div class="section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+                        <h3 style="margin: 0;">This Week</h3>
+                        <span id="week-comparison" class="comparison-badge"></span>
+                    </div>
+                    <div id="week-overview" class="week-overview">
+                        <!-- Week calendar will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Weekly Insights -->
+                <div class="section">
+                    <h3>Weekly Insights</h3>
+                    <div id="weekly-insights" class="weekly-insights">
+                        <!-- Weekly metrics will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="section">
+                    <h3>Smart Recommendations</h3>
+                    <div id="recommendations" class="recommendations">
+                        <div class="recommendation-card">
+                            <div class="recommendation-icon">💡</div>
+                            <div class="recommendation-content">
+                                <p>Connect your Google Calendar to get started!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div id="view-calendar" class="view">
+                <div class="view-header">
+                    <h2>Calendar</h2>
+                    <div class="view-actions">
+                        <div class="btn-group">
+                            <button class="btn btn-sm" data-calendar-view="day">Day</button>
+                            <button class="btn btn-sm active" data-calendar-view="week">Week</button>
+                            <button class="btn btn-sm" data-calendar-view="month">Month</button>
+                            <button class="btn btn-sm" data-calendar-view="list">List</button>
+                        </div>
+                        <button id="export-event-list-btn" class="btn btn-secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Export List
+                        </button>
+                        <button id="new-appointment-btn" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            New Appointment
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calendar Sticky Header (Controls + Weekdays) -->
+                <div class="calendar-sticky-header">
+                    <!-- Calendar Controls -->
+                    <div class="calendar-controls">
+                        <button id="calendar-prev" class="btn btn-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <h3 id="calendar-title" class="calendar-title">January 2025</h3>
+                        <button id="calendar-next" class="btn btn-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                        <button id="calendar-today" class="btn">Today</button>
+                    </div>
+                    
+                    <!-- Calendar Weekdays Header -->
+                    <div id="calendar-weekdays" class="calendar-weekdays">
+                        <!-- Weekday headers will be rendered here by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div id="calendar-container" class="calendar-container">
+                    <!-- Calendar will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Templates View -->
+            <div id="view-templates" class="view">
+                <div class="view-header">
+                    <h2>Appointment Templates</h2>
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button id="manage-templates-btn" class="btn btn-secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Manage Templates
+                        </button>
+                        <button id="new-template-btn" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Create Template
+                        </button>
+                    </div>
+                </div>
+
+                <div id="templates-list" class="templates-grid">
+                    <!-- Templates will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Analytics View -->
+            <div id="view-analytics" class="view">
+                <div class="view-header">
+                    <h2>Analytics</h2>
+                    <div class="view-actions" style="display: flex; gap: var(--spacing-md); align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem;">
+                            <input type="checkbox" id="analytics-compare-toggle">
+                            <span>Compare periods</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.875rem;">
+                            <input type="checkbox" id="analytics-work-only-toggle" checked>
+                            <span>Work events only</span>
+                        </label>
+                        <select id="analytics-range" class="select">
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="quarter">This Quarter</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="analytics-content">
+                    <!-- Overview Cards -->
+                    <div class="analytics-overview">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Appointments</div>
+                            <div class="stat-value" id="analytics-total-appointments">0</div>
+                            <div id="analytics-total-appointments-comparison" class="stat-comparison"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Hours</div>
+                            <div class="stat-value" id="analytics-total-hours">0h</div>
+                            <div id="analytics-total-hours-comparison" class="stat-comparison"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Avg Daily Workload</div>
+                            <div class="stat-value" id="analytics-avg-daily">0h</div>
+                            <div id="analytics-avg-daily-comparison" class="stat-comparison"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Busiest Day</div>
+                            <div class="stat-value" id="analytics-busiest-day">-</div>
+                            <div id="analytics-busiest-day-comparison" class="stat-comparison"></div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="analytics-grid">
+                        <!-- Workload Trend -->
+                        <div class="analytics-card">
+                            <h3>Workload Trend</h3>
+                            <div id="workload-trend-chart" class="chart-container"></div>
+                        </div>
+
+                        <!-- Appointment Types -->
+                        <div class="analytics-card">
+                            <h3>Appointment Types</h3>
+                            <div id="appointment-types-chart" class="chart-container"></div>
+                        </div>
+
+                        <!-- Busiest Days -->
+                        <div class="analytics-card">
+                            <h3>Busiest Days of Week</h3>
+                            <div id="busiest-days-chart" class="chart-container"></div>
+                        </div>
+
+                        <!-- Busiest Times -->
+                        <div class="analytics-card">
+                            <h3>Busiest Times of Day</h3>
+                            <div id="busiest-times-chart" class="chart-container"></div>
+                        </div>
+
+                        <!-- Template Usage -->
+                        <div class="analytics-card">
+                            <h3>Template Usage</h3>
+                            <div id="template-usage-chart" class="chart-container"></div>
+                        </div>
+
+                        <!-- Weekly Insights -->
+                        <div class="analytics-card">
+                            <h3>Weekly Insights</h3>
+                            <div id="analytics-insights" class="insights-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="view">
+                <div class="view-header">
+                    <h2>Settings</h2>
+                </div>
+
+                <div class="settings-sections">
+                    <!-- API Configuration -->
+                    <div id="api-config-section" class="settings-section">
+                        <h3>API Configuration</h3>
+                        <div class="form-group">
+                            <label for="calendar-client-id">Google Calendar OAuth Client ID</label>
+                            <input type="text" id="calendar-client-id" class="input" placeholder="Your OAuth Client ID">
+                            <small class="form-help" id="client-id-help">
+                                <span id="client-id-auto-configured" style="display: none; color: #10b981;">
+                                    ✓ Auto-configured from deployment
+                                </span>
+                                <span id="client-id-manual-setup" style="display: none;">
+                                    See <a href="docs/API_SETUP.md" target="_blank">API Setup Guide</a>
+                                </span>
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="maps-api-key">Google Maps API Key</label>
+                            <input type="text" id="maps-api-key" class="input" placeholder="Your API Key">
+                        </div>
+                        <div class="form-group">
+                            <label for="home-address">🏠 Home/Base Address</label>
+                            <input type="text" id="home-address" class="input" placeholder="123 Main St, City, State ZIP">
+                            <small class="form-help">Starting point for calculating travel time to appointments</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="include-travel-time" checked>
+                                <span>Include travel time in workload calculations</span>
+                            </label>
+                            <small class="form-help">When enabled, travel time between appointments is added to your daily workload</small>
+                        </div>
+                        <button id="save-api-settings" class="btn btn-primary">Save API Settings</button>
+                    </div>
+
+                    <!-- Workload Preferences -->
+                    <div class="settings-section">
+                        <h3>Workload Thresholds</h3>
+                        <p class="text-muted" style="margin-bottom: var(--spacing-lg);">
+                            Configure thresholds for daily, weekly, and monthly workloads. These affect color-coding throughout the app.
+                        </p>
+
+                        <!-- Daily Thresholds -->
+                        <h4 style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md);">📅 Daily Thresholds</h4>
+                        <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--gray-50); border-radius: var(--radius-lg); border: 1px solid var(--gray-200);">
+                            <div style="font-weight: 600; margin-bottom: var(--spacing-sm); color: var(--gray-700);">Preview:</div>
+                            <div style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--green-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;">0-<span id="preview-daily-comfortable">6</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--yellow-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-daily-busy-start">6</span>-<span id="preview-daily-busy">8</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--orange-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-daily-high-start">8</span>-<span id="preview-daily-high">10</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--red-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-daily-burnout-start">10</span>h+</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                            <div class="form-group">
+                                <label for="threshold-daily-comfortable">🟢 Comfortable</label>
+                                <input type="number" id="threshold-daily-comfortable" class="input" value="6" min="1" max="24" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-daily-busy">🟡 Busy</label>
+                                <input type="number" id="threshold-daily-busy" class="input" value="8" min="1" max="24" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-daily-overload">🟠 High Workload</label>
+                                <input type="number" id="threshold-daily-overload" class="input" value="10" min="1" max="24" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-daily-burnout">🔴 Burnout Risk</label>
+                                <input type="number" id="threshold-daily-burnout" class="input" value="12" min="1" max="24" step="0.5">
+                            </div>
+                        </div>
+
+                        <!-- Weekly Thresholds -->
+                        <h4 style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md);">📆 Weekly Thresholds</h4>
+                        <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--gray-50); border-radius: var(--radius-lg); border: 1px solid var(--gray-200);">
+                            <div style="font-weight: 600; margin-bottom: var(--spacing-sm); color: var(--gray-700);">Preview:</div>
+                            <div style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--green-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;">0-<span id="preview-weekly-comfortable">35</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--yellow-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-weekly-busy-start">35</span>-<span id="preview-weekly-busy">45</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--orange-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-weekly-high-start">45</span>-<span id="preview-weekly-high">55</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--red-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-weekly-burnout-start">55</span>h+</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                            <div class="form-group">
+                                <label for="threshold-weekly-comfortable">🟢 Comfortable</label>
+                                <input type="number" id="threshold-weekly-comfortable" class="input" value="35" min="1" max="168" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-weekly-busy">🟡 Busy</label>
+                                <input type="number" id="threshold-weekly-busy" class="input" value="45" min="1" max="168" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-weekly-overload">🟠 High Workload</label>
+                                <input type="number" id="threshold-weekly-overload" class="input" value="55" min="1" max="168" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-weekly-burnout">🔴 Burnout Risk</label>
+                                <input type="number" id="threshold-weekly-burnout" class="input" value="65" min="1" max="168" step="1">
+                            </div>
+                        </div>
+
+                        <!-- Monthly Thresholds -->
+                        <h4 style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md);">🗓️ Monthly Thresholds</h4>
+                        <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--gray-50); border-radius: var(--radius-lg); border: 1px solid var(--gray-200);">
+                            <div style="font-weight: 600; margin-bottom: var(--spacing-sm); color: var(--gray-700);">Preview:</div>
+                            <div style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--green-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;">0-<span id="preview-monthly-comfortable">140</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--yellow-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-monthly-busy-start">140</span>-<span id="preview-monthly-busy">180</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--orange-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-monthly-high-start">180</span>-<span id="preview-monthly-high">220</span>h</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: var(--spacing-xs);">
+                                    <div style="width: 12px; height: 12px; background: var(--red-500); border-radius: 50%;"></div>
+                                    <span style="font-size: 0.875rem;"><span id="preview-monthly-burnout-start">220</span>h+</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                            <div class="form-group">
+                                <label for="threshold-monthly-comfortable">🟢 Comfortable</label>
+                                <input type="number" id="threshold-monthly-comfortable" class="input" value="140" min="1" max="744" step="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-monthly-busy">🟡 Busy</label>
+                                <input type="number" id="threshold-monthly-busy" class="input" value="180" min="1" max="744" step="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-monthly-overload">🟠 High Workload</label>
+                                <input type="number" id="threshold-monthly-overload" class="input" value="220" min="1" max="744" step="5">
+                            </div>
+                            <div class="form-group">
+                                <label for="threshold-monthly-burnout">🔴 Burnout Risk</label>
+                                <input type="number" id="threshold-monthly-burnout" class="input" value="260" min="1" max="744" step="5">
+                            </div>
+                        </div>
+
+                        <button id="save-workload-settings" class="btn btn-primary" style="margin-top: var(--spacing-lg);">Save All Thresholds</button>
+                    </div>
+
+                    <!-- Calendar Selection -->
+                    <div class="settings-section">
+                        <h3>Calendar Selection</h3>
+                        <div id="calendar-list">
+                            <p class="text-muted">Connect your Google Calendar to select calendars</p>
+                        </div>
+                    </div>
+
+                    <!-- Account Management -->
+                    <div class="settings-section" id="account-management-section">
+                        <h3>Account Management</h3>
+                        <p class="text-muted">Manage your calendar connection and local data</p>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button id="clear-calendar-data-btn" class="btn btn-secondary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Clear Calendar Data
+                            </button>
+                            <button id="logout-btn" class="btn btn-outline">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Logout from Google
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- New Appointment Modal -->
+    <div id="appointment-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>New Appointment</h3>
+                <button class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="appointment-form">
+                    <div class="form-group">
+                        <label for="appointment-template">Template (optional)</label>
+                        <select id="appointment-template" class="select">
+                            <option value="">-- Select Template --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="appointment-title">Title</label>
+                        <input type="text" id="appointment-title" class="input" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="appointment-date">Date</label>
+                            <input type="date" id="appointment-date" class="input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="appointment-time">Time</label>
+                            <input type="time" id="appointment-time" class="input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="appointment-duration">Duration</label>
+                        <select id="appointment-duration" class="select">
+                            <option value="15">15 minutes</option>
+                            <option value="30" selected>30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="90">1.5 hours</option>
+                            <option value="120">2 hours</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="appointment-location">Location</label>
+                        <input type="text" id="appointment-location" class="input" placeholder="Client address">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="appointment-travel">
+                            <span>Include travel time</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="appointment-notes">Notes</label>
+                        <textarea id="appointment-notes" class="textarea" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary js-modal-close">Cancel</button>
+                <button id="save-appointment" class="btn btn-primary">Create Appointment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day Details Modal -->
+    <div id="day-details-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <div>
+                    <h3 id="day-details-title">Day Details</h3>
+                    <p id="day-details-subtitle" class="day-details-subtitle"></p>
+                </div>
+                <button class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="day-details-content">
+                    <!-- Day events will be rendered here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary js-modal-close">Close</button>
+                <button id="view-in-list-btn" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                    View in List
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div id="template-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="template-modal-title">Create Template</h3>
+                <button class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="template-form">
+                    <div class="form-group">
+                        <label for="template-name">Template Name</label>
+                        <input type="text" id="template-name" class="form-control" placeholder="e.g., Morning Drop-in" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-icon">Icon (Emoji)</label>
+                        <input type="text" id="template-icon" class="form-control" placeholder="e.g., 🐕" maxlength="2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="template-type">Service Type</label>
+                        <select id="template-type" class="form-control" required>
+                            <option value="dropin">Drop-in Visit</option>
+                            <option value="walk">Dog Walk</option>
+                            <option value="overnight">Overnight Stay</option>
+                            <option value="meet-greet">Meet & Greet</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="template-hours">Hours</label>
+                            <input type="number" id="template-hours" class="form-control" min="0" max="24" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="template-minutes">Minutes</label>
+                            <input type="number" id="template-minutes" class="form-control" min="0" max="59" step="15" value="30">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="template-include-travel" checked>
+                            <span>Include travel time in workload calculations</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary js-modal-close">Cancel</button>
+                <button id="save-template" class="btn btn-primary">Save Template</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Event List Modal -->
+    <div id="export-event-list-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Export Work Events List</h3>
+                <button class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="margin-bottom: var(--spacing-lg);">
+                    Generate a formatted text list of your work calendar events showing date, client/pet name, and service type.
+                </p>
+
+                <form id="export-event-list-form">
+                    <div class="form-group">
+                        <label>Date Range</label>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-start-date" style="font-size: 0.875rem; font-weight: normal;">Start Date</label>
+                                <input type="date" id="export-start-date" class="input">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-end-date" style="font-size: 0.875rem; font-weight: normal;">End Date</label>
+                                <input type="date" id="export-end-date" class="input">
+                            </div>
+                        </div>
+                        <small class="form-help">Leave blank to export all work events</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="export-group-by">Group By</label>
+                        <select id="export-group-by" class="select">
+                            <option value="client">Client → Service → Dates</option>
+                            <option value="date">Date → Clients</option>
+                            <option value="none">No Grouping (Simple List)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Format Options</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-include-time" checked>
+                                <span>Include appointment times</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="export-format">Export Format</label>
+                        <select id="export-format" class="select">
+                            <option value="text">Text List</option>
+                            <option value="csv">CSV (Spreadsheet)</option>
+                        </select>
+                    </div>
+                </form>
+
+                <!-- Preview Section -->
+                <div id="export-preview-section" style="margin-top: var(--spacing-lg); display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                        <label style="font-weight: 600; color: var(--gray-700);">Preview:</label>
+                        <span id="export-event-count" class="badge" style="background: var(--primary-500); color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem;"></span>
+                    </div>
+                    <div id="export-preview" style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: var(--spacing-md); max-height: 300px; overflow-y: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.875rem; white-space: pre-wrap; line-height: 1.6;">
+                        <!-- Preview will be generated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary js-modal-close">Cancel</button>
+                <button id="export-generate-preview" class="btn btn-secondary">Generate Preview</button>
+                <button id="export-copy-to-clipboard" class="btn btn-primary" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy to Clipboard
+                </button>
+                <button id="export-download-file" class="btn btn-primary" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration (load first) -->
+    <!-- Try to load local config, fall back to example if not found -->
+    <script src="config.local.js" onerror="this.onerror=null; this.src='config.example.js';"></script>
+
+    <!-- Core Modules (order matters) -->
+    <script src="js/utils.js?v=3.0"></script>
+    <script src="js/data.js?v=3.0"></script>
+    <script src="js/events.js?v=3.0"></script>
+    <script src="js/calculations.js?v=3.0"></script>
+    <script src="js/rendering.js?v=3.0"></script>
+    <script src="js/core.js?v=3.0"></script>
+    
+    <!-- API Modules -->
+    <script src="js/calendar-api.js?v=2.8"></script>
+    <script src="js/maps-api.js?v=2.8"></script>
+    <script src="js/workload-analyzer.js?v=2.8"></script>
+    <script src="js/templates.js?v=2.8"></script>
+    <script src="js/event-list-export.js?v=1.0"></script>
+
+    <!-- Initialize App -->
+    <script>
+        // Initialize the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.gpsApp = new GPSAdminApp();
+            window.gpsApp.init();
+        });
+    </script>
+</body>
+</html>

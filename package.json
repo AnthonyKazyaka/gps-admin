@@ -1,0 +1,19 @@
+{
+  "name": "gps-admin",
+  "version": "1.0.0",
+  "description": "GPS Admin - Smart scheduling and workload management for Genie's Pet Sitting",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": ["calendar", "scheduling", "pet-sitting"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
