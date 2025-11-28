@@ -42,7 +42,6 @@
     --info-700: #1D4ED8;
 
     /* Workload Colors */
-    --workload-light: #3B82F6; /* Blue for light workload */
     --workload-comfortable: #10B981;
     --workload-busy: #F59E0B;
     --workload-high: #F97316;
@@ -594,7 +593,6 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-.week-day.light { border-color: var(--workload-light); background: rgba(59, 130, 246, 0.05); }
 .week-day.comfortable { border-color: var(--workload-comfortable); background: rgba(16, 185, 129, 0.05); }
 .week-day.busy { border-color: var(--workload-busy); background: rgba(245, 158, 11, 0.05); }
 .week-day.high { border-color: var(--workload-high); background: rgba(249, 115, 22, 0.05); }
@@ -1835,12 +1833,8 @@ label {
     transition: width var(--transition-base);
 }
 
-.week-day-workload-fill.light {
-    background: var(--success-500);
-}
-
 .week-day-workload-fill.comfortable {
-    background: var(--primary-500);
+    background: var(--success-500);
 }
 
 .week-day-workload-fill.busy {
