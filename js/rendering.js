@@ -363,17 +363,17 @@ class RenderEngine {
         const avgWeeklyHours = totalCombinedMinutes / 60;
         let workloadStatus = '';
         let workloadColor = '';
-        if (avgWeeklyHours < 25) {
-            workloadStatus = 'Light';
-            workloadColor = 'var(--success-500)';
-        } else if (avgWeeklyHours < 40) {
+        if (avgWeeklyHours < state.settings.thresholds.weekly.comfortable) {
             workloadStatus = 'Comfortable';
-            workloadColor = 'var(--primary-500)';
-        } else if (avgWeeklyHours < 50) {
+            workloadColor = 'var(--success-500)';
+        } else if (avgWeeklyHours < state.settings.thresholds.weekly.busy) {
             workloadStatus = 'Busy';
             workloadColor = 'var(--warning-500)';
+        } else if (avgWeeklyHours < state.settings.thresholds.weekly.high) {
+            workloadStatus = 'High';
+            workloadColor = 'var(--orange-500)';
         } else {
-            workloadStatus = 'High Risk';
+            workloadStatus = 'Burnout Risk';
             workloadColor = 'var(--danger-500)';
         }
 

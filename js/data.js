@@ -56,10 +56,10 @@ class DataManager {
             settings: {
                 thresholds: {
                     daily: {
-                        comfortable: 6,
-                        busy: 8,
-                        high: 10,
-                        burnout: 12
+                        comfortable: 2,
+                        busy: 4,
+                        high: 6,
+                        burnout: 8
                     },
                     weekly: {
                         comfortable: 35,

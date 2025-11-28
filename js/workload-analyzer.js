@@ -552,7 +552,7 @@ class WorkloadAnalyzer {
             currentEvents: item.day.eventCount,
             reason: item.day.totalHours === 0
                 ? 'Already a rest day'
-                : `Light workload (${item.day.totalHours.toFixed(1)}h) - easiest to reschedule`
+                : `Lower workload (${item.day.totalHours.toFixed(1)}h) - easiest to reschedule`
         }));
     }
 
