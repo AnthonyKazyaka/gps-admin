@@ -738,7 +738,10 @@ class RenderEngine {
 
         // Total hours
         const totalMinutes = events.reduce((sum, event) => {
-            return sum + ((event.end - event.start) / (1000 * 60));
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const diff = (endDate - startDate) / (1000 * 60);
+            return sum + (isNaN(diff) ? 0 : diff);
         }, 0);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = Math.round(totalMinutes % 60);
@@ -752,8 +755,11 @@ class RenderEngine {
         // Busiest day
         const dayWorkload = {};
         events.forEach(event => {
-            const dayKey = new Date(event.start).toDateString();
-            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + ((event.end - event.start) / (1000 * 60 * 60));
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            const dayKey = eventStart.toDateString();
+            const diff = (eventEnd - eventStart) / (1000 * 60 * 60);
+            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + (isNaN(diff) ? 0 : diff);
         });
 
         const busiestDay = Object.entries(dayWorkload).reduce((max, entry) => {
@@ -1455,7 +1461,10 @@ class RenderEngine {
                         ${workEvents.map(event => {
                             const startTime = Utils.formatTime(event.start);
                             const endTime = Utils.formatTime(event.end);
-                            const duration = Math.round((event.end - event.start) / (1000 * 60)); // minutes
+                            const eventStart = new Date(event.start);
+                            const eventEnd = new Date(event.end);
+                            const durationMinutes = Math.round((eventEnd - eventStart) / (1000 * 60));
+                            const duration = isNaN(durationMinutes) ? 0 : durationMinutes; // minutes
 
                             let eventType = '';
                             if (this.eventProcessor.isOvernightEvent(event)) {
