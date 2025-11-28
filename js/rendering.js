@@ -1239,8 +1239,10 @@ class RenderEngine {
         today.setHours(0, 0, 0, 0);
 
         // Render weekday headers into dedicated container
+        // Remove week-view class if present (for month view)
         const weekdaysContainer = document.getElementById('calendar-weekdays');
         if (weekdaysContainer) {
+            weekdaysContainer.classList.remove('week-view-active');
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             weekdaysContainer.innerHTML = dayNames.map(day => 
                 `<div class="calendar-weekday">${day}</div>`
@@ -1344,8 +1346,10 @@ class RenderEngine {
         today.setHours(0, 0, 0, 0);
 
         // Render weekday headers into dedicated container
+        // Add week-view class for mobile styling
         const weekdaysContainer = document.getElementById('calendar-weekdays');
         if (weekdaysContainer) {
+            weekdaysContainer.classList.add('week-view-active');
             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             weekdaysContainer.innerHTML = dayNames.map(day =>
                 `<div class="calendar-weekday">${day}</div>`
@@ -1399,8 +1403,12 @@ class RenderEngine {
             if (hasActiveHousesit) classes += ' has-housesit';
             if (hasHousesitEnding) classes += ' has-housesit-ending';
 
+            // Short day name for mobile display
+            const dayNamesShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayNameShort = dayNamesShort[dateKey.getDay()];
+
             html += `
-                <div class="${classes}" data-date="${dateKey.toISOString()}">
+                <div class="${classes}" data-date="${dateKey.toISOString()}" data-day-name="${dayNameShort}">
                     ${hasActiveHousesit ? '<div class="calendar-day-housesit-bar" title="House sit scheduled"></div>' : ''}
                     ${hasHousesitEnding ? '<div class="calendar-day-housesit-bar housesit-ending" title="House sit ends"></div>' : ''}
 
