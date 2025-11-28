@@ -105,16 +105,13 @@ class WorkloadCalculator {
         let label = 'No work';
 
         if (totalHours > 0) {
-            if (totalHours < 6) {
-                level = 'light';
-                label = 'Light';
-            } else if (totalHours < 8) {
+            if (totalHours <= 2) {
                 level = 'comfortable';
                 label = 'Comfortable';
-            } else if (totalHours < 10) {
+            } else if (totalHours <= 4) {
                 level = 'busy';
                 label = 'Busy';
-            } else if (totalHours < 12) {
+            } else if (totalHours <= 6) {
                 level = 'high';
                 label = 'High';
             } else {
@@ -145,7 +142,6 @@ class WorkloadCalculator {
     getWorkloadLabel(level) {
         const labels = {
             'none': 'No work',
-            'light': 'Light',
             'comfortable': 'Comfortable',
             'busy': 'Busy',
             'high': 'High',

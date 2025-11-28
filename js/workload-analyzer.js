@@ -6,10 +6,10 @@
 class WorkloadAnalyzer {
     constructor(thresholds = {}) {
         this.thresholds = {
-            comfortable: 6,      // Daily hours for comfortable workload
-            busy: 8,             // Daily hours when getting busy
-            high: 10,            // Daily hours for high workload
-            burnout: 12,         // Daily hours for single-day burnout risk
+            comfortable: 2,      // Daily hours for comfortable workload
+            busy: 4,             // Daily hours when getting busy
+            high: 6,             // Daily hours for high workload
+            burnout: 8,          // Daily hours for single-day burnout risk
             weeklyComfortable: 35,  // Weekly hours for sustainable workload
             weeklyHigh: 50,         // Weekly hours that's getting unsustainable
             consecutiveDaysWarning: 5,  // Days in a row before warning
@@ -552,7 +552,7 @@ class WorkloadAnalyzer {
             currentEvents: item.day.eventCount,
             reason: item.day.totalHours === 0
                 ? 'Already a rest day'
-                : `Light workload (${item.day.totalHours.toFixed(1)}h) - easiest to reschedule`
+                : `Lower workload (${item.day.totalHours.toFixed(1)}h) - easiest to reschedule`
         }));
     }
 

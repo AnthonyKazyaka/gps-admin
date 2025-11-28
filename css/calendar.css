@@ -134,11 +134,6 @@
 }
 
 /* Workload Levels */
-.calendar-day.light {
-    border-color: var(--workload-light);
-    background: linear-gradient(135deg, white 0%, rgba(59, 130, 246, 0.1) 100%);
-}
-
 .calendar-day.comfortable {
     border-color: var(--workload-comfortable);
     background: linear-gradient(135deg, white 0%, rgba(16, 185, 129, 0.1) 100%);
@@ -180,10 +175,6 @@
     font-size: 0.75rem;
     font-weight: 600;
     margin-top: 2px;
-}
-
-.calendar-day.light .calendar-day-hours {
-    color: var(--workload-light);
 }
 
 .calendar-day.comfortable .calendar-day-hours {
@@ -853,5 +844,410 @@
     .calendar-list-event-meta {
         flex-direction: column;
         gap: var(--spacing-xs);
+    }
+}
+/* ============================================
+   DAY VIEW STYLES
+   ============================================ */
+
+.calendar-day-view {
+    width: 100%;
+    padding: var(--spacing-lg);
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Day View Header */
+.day-view-header {
+    margin-bottom: var(--spacing-xl);
+}
+
+.day-view-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.day-view-title h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    color: var(--text-primary);
+}
+
+.day-view-today-badge {
+    background: var(--primary-500);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Workload Summary Card */
+.day-view-workload-summary {
+    margin-bottom: var(--spacing-xl);
+}
+
+.workload-summary-card {
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.workload-summary-card.comfortable {
+    border-color: var(--success-300);
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.workload-summary-card.busy {
+    border-color: var(--warning-300);
+    background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.workload-summary-card.high {
+    border-color: var(--orange-300);
+    background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.workload-summary-card.burnout {
+    border-color: var(--danger-300);
+    background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.workload-summary-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.workload-level-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.workload-level-badge.comfortable {
+    background: var(--success-100);
+    color: var(--success-700);
+}
+
+.workload-level-badge.busy {
+    background: var(--warning-100);
+    color: var(--warning-700);
+}
+
+.workload-level-badge.high {
+    background: var(--orange-100);
+    color: var(--orange-700);
+}
+
+.workload-level-badge.burnout {
+    background: var(--danger-100);
+    color: var(--danger-700);
+}
+
+.workload-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.workload-stat {
+    text-align: center;
+    padding: var(--spacing-sm);
+}
+
+.workload-stat.highlight {
+    background: rgba(99, 102, 241, 0.05);
+    border-radius: var(--radius-md);
+}
+
+.workload-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.workload-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Workload Capacity Bar */
+.workload-capacity-bar {
+    height: 24px;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+}
+
+.workload-capacity-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: var(--radius-md);
+}
+
+.workload-capacity-fill.comfortable {
+    background: linear-gradient(90deg, var(--success-400), var(--success-500));
+}
+
+.workload-capacity-fill.busy {
+    background: linear-gradient(90deg, var(--warning-400), var(--warning-500));
+}
+
+.workload-capacity-fill.high {
+    background: linear-gradient(90deg, var(--orange-400), var(--orange-500));
+}
+
+.workload-capacity-fill.burnout {
+    background: linear-gradient(90deg, var(--danger-400), var(--danger-500));
+}
+
+.workload-capacity-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    padding: 0 4px;
+}
+
+.capacity-threshold {
+    font-weight: 600;
+}
+
+.capacity-threshold.comfortable {
+    color: var(--success-600);
+}
+
+.capacity-threshold.busy {
+    color: var(--warning-600);
+}
+
+.capacity-threshold.high {
+    color: var(--orange-600);
+}
+
+.capacity-threshold.burnout {
+    color: var(--danger-600);
+}
+
+/* Day View Timeline */
+.day-view-timeline {
+    margin-top: var(--spacing-xl);
+}
+
+.day-view-empty {
+    text-align: center;
+    padding: var(--spacing-4xl) var(--spacing-xl);
+    color: var(--text-secondary);
+}
+
+.day-view-empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.day-view-empty h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--text-primary);
+}
+
+.day-view-empty p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* Housesit Notice */
+.day-view-housesit-notice {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border: 2px solid var(--purple-300);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.housesit-icon {
+    font-size: 2rem;
+}
+
+.housesit-info strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--purple-700);
+}
+
+.housesit-info p {
+    margin: 0;
+    color: var(--purple-600);
+    font-size: 0.875rem;
+}
+
+/* Day View Events */
+.day-view-events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.day-view-event {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    transition: all 0.2s ease;
+}
+
+.day-view-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.day-view-event.work-event {
+    border-left: 4px solid var(--primary-500);
+}
+
+.day-view-event.personal-event {
+    border-left: 4px solid var(--gray-300);
+}
+
+.day-view-event.event-ignored {
+    opacity: 0.5;
+}
+
+.event-time-badge {
+    flex-shrink: 0;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: center;
+    min-width: 80px;
+}
+
+.event-start-time {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.event-end-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.event-details {
+    flex: 1;
+}
+
+.event-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.event-icon {
+    font-size: 1.25rem;
+}
+
+.event-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.event-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.event-badge.work {
+    background: var(--primary-100);
+    color: var(--primary-700);
+}
+
+.event-badge.housesit-ending {
+    background: var(--purple-100);
+    color: var(--purple-700);
+}
+
+.event-location {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.event-duration {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.event-notes {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    background: var(--gray-50);
+    border-radius: var(--radius-sm);
+}
+
+/* Travel Time Indicator */
+.day-view-travel {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-md);
+    margin-left: 100px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.travel-icon {
+    font-size: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .calendar-day-view {
+        padding: var(--spacing-md);
+    }
+
+    .day-view-title h2 {
+        font-size: 1.25rem;
+    }
+
+    .workload-summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .day-view-event {
+        flex-direction: column;
+    }
+
+    .event-time-badge {
+        min-width: auto;
+    }
+
+    .day-view-travel {
+        margin-left: 0;
     }
 }

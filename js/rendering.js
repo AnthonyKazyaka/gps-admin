@@ -363,17 +363,17 @@ class RenderEngine {
         const avgWeeklyHours = totalCombinedMinutes / 60;
         let workloadStatus = '';
         let workloadColor = '';
-        if (avgWeeklyHours < 25) {
-            workloadStatus = 'Light';
-            workloadColor = 'var(--success-500)';
-        } else if (avgWeeklyHours < 40) {
+        if (avgWeeklyHours < state.settings.thresholds.weekly.comfortable) {
             workloadStatus = 'Comfortable';
-            workloadColor = 'var(--primary-500)';
-        } else if (avgWeeklyHours < 50) {
+            workloadColor = 'var(--success-500)';
+        } else if (avgWeeklyHours < state.settings.thresholds.weekly.busy) {
             workloadStatus = 'Busy';
             workloadColor = 'var(--warning-500)';
+        } else if (avgWeeklyHours < state.settings.thresholds.weekly.high) {
+            workloadStatus = 'High';
+            workloadColor = 'var(--orange-500)';
         } else {
-            workloadStatus = 'High Risk';
+            workloadStatus = 'Burnout Risk';
             workloadColor = 'var(--danger-500)';
         }
 
@@ -1312,7 +1312,179 @@ class RenderEngine {
      * Render day calendar view
      */
     renderDayView(container, state) {
-        container.innerHTML = '<p class="text-muted">Day view coming soon...</p>';
+        const currentDate = new Date(state.currentDate);
+        currentDate.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isToday = currentDate.getTime() === today.getTime();
+
+        // Get events for this day
+        const dayEvents = this.eventProcessor.getEventsForDate(state.events, currentDate);
+        const sortedEvents = dayEvents.sort((a, b) => a.start - b.start);
+
+        // Calculate workload metrics
+        const metrics = this.calculator.calculateWorkloadMetrics(sortedEvents, currentDate, {
+            includeTravel: state.settings.includeTravelTime
+        });
+
+        // Count only work events (excluding ending housesits)
+        const workEvents = sortedEvents.filter(event => {
+            const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
+            if (!isWork) return false;
+
+            // Exclude overnight events that are ending
+            if (this.eventProcessor.isOvernightEvent(event)) {
+                return !this.eventProcessor.isOvernightEndDate(event, currentDate);
+            }
+            return true;
+        });
+        const workEventCount = workEvents.length;
+
+        // Build the day view HTML
+        let html = '<div class="calendar-day-view">';
+
+        // Day header with workload info
+        html += '<div class="day-view-header">';
+        html += `<div class="day-view-title">
+            <h2>${Utils.DAY_NAMES_LONG[currentDate.getDay()]}, ${Utils.MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getDate()}</h2>
+            ${isToday ? '<span class="day-view-today-badge">Today</span>' : ''}
+        </div>`;
+
+        // Workload summary card
+        html += '<div class="day-view-workload-summary">';
+        html += `<div class="workload-summary-card ${metrics.level}">`;
+        html += '<div class="workload-summary-header">';
+        html += `<span class="workload-level-badge ${metrics.level}">${metrics.label}</span>`;
+        html += '</div>';
+        html += '<div class="workload-summary-stats">';
+        html += `<div class="workload-stat">
+            <div class="workload-stat-label">Appointments</div>
+            <div class="workload-stat-value">${workEventCount}</div>
+        </div>`;
+        html += `<div class="workload-stat">
+            <div class="workload-stat-label">Work Hours</div>
+            <div class="workload-stat-value">${Utils.formatHours(metrics.workHours)}</div>
+        </div>`;
+        if (state.settings.includeTravelTime && metrics.travelHours > 0) {
+            html += `<div class="workload-stat">
+                <div class="workload-stat-label">Travel Time</div>
+                <div class="workload-stat-value">${Utils.formatHours(metrics.travelHours)}</div>
+            </div>`;
+        }
+        html += `<div class="workload-stat highlight">
+            <div class="workload-stat-label">Total Hours</div>
+            <div class="workload-stat-value">${Utils.formatHours(metrics.totalHours)}</div>
+        </div>`;
+        html += '</div>';
+
+        // Workload capacity bar
+        const thresholds = state.settings.thresholds.daily;
+        const capacityPercent = Math.min((metrics.totalHours / thresholds.burnout) * 100, 100);
+        html += '<div class="workload-capacity-bar">';
+        html += `<div class="workload-capacity-fill ${metrics.level}" style="width: ${capacityPercent}%"></div>`;
+        html += '</div>';
+        html += '<div class="workload-capacity-labels">';
+        html += `<span>0h</span>`;
+        html += `<span class="capacity-threshold comfortable">${thresholds.comfortable}h</span>`;
+        html += `<span class="capacity-threshold busy">${thresholds.busy}h</span>`;
+        html += `<span class="capacity-threshold high">${thresholds.high}h</span>`;
+        html += `<span class="capacity-threshold burnout">${thresholds.burnout}h</span>`;
+        html += '</div>';
+        html += '</div>'; // workload-summary-card
+        html += '</div>'; // day-view-workload-summary
+        html += '</div>'; // day-view-header
+
+        // Events timeline
+        html += '<div class="day-view-timeline">';
+
+        if (sortedEvents.length === 0) {
+            html += '<div class="day-view-empty">';
+            html += '<div class="day-view-empty-icon">📅</div>';
+            html += '<h3>No appointments scheduled</h3>';
+            html += '<p>Enjoy your free day!</p>';
+            html += '</div>';
+        } else {
+            // Housesit info
+            if (metrics.housesits.length > 0) {
+                const hasActiveHousesit = metrics.housesits.some(h => !h.isEndDate);
+                const hasEndingHousesit = metrics.housesits.some(h => h.isEndDate);
+
+                if (hasActiveHousesit || hasEndingHousesit) {
+                    html += '<div class="day-view-housesit-notice">';
+                    html += '<div class="housesit-icon">🏠</div>';
+                    html += '<div class="housesit-info">';
+                    if (hasActiveHousesit) {
+                        html += '<strong>House Sitting Day</strong>';
+                        html += '<p>You have an active house sit scheduled</p>';
+                    } else if (hasEndingHousesit) {
+                        html += '<strong>House Sit Ending</strong>';
+                        html += '<p>Your house sit ends today</p>';
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                }
+            }
+
+            // Render events
+            html += '<div class="day-view-events">';
+
+            sortedEvents.forEach((event, index) => {
+                const startTime = event.isAllDay ? 'All Day' : Utils.formatTime(event.start);
+                const endTime = event.isAllDay ? '' : Utils.formatTime(event.end);
+                const duration = event.isAllDay ? '' : Math.round((event.end - event.start) / (1000 * 60));
+                const icon = this.eventProcessor.getEventTypeIcon(event.type);
+                const isWorkEvent = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
+                const isOvernightEnding = this.eventProcessor.isOvernightEndDate(event, currentDate);
+
+                html += `<div class="day-view-event ${isWorkEvent ? 'work-event' : 'personal-event'} ${event.ignored ? 'event-ignored' : ''}">`;
+                html += '<div class="event-time-badge">';
+                html += `<div class="event-start-time">${startTime}</div>`;
+                if (endTime) {
+                    html += `<div class="event-end-time">→ ${endTime}</div>`;
+                }
+                html += '</div>';
+                html += '<div class="event-details">';
+                html += '<div class="event-header">';
+                html += `<span class="event-icon">${icon}</span>`;
+                html += `<span class="event-title">${event.title}</span>`;
+                if (isWorkEvent) {
+                    if (isOvernightEnding) {
+                        html += '<span class="event-badge housesit-ending">🏠 Ends</span>';
+                    } else {
+                        html += '<span class="event-badge work">💼 Work</span>';
+                    }
+                }
+                html += '</div>';
+                if (event.location) {
+                    html += `<div class="event-location">📍 ${event.location}</div>`;
+                }
+                if (duration) {
+                    html += `<div class="event-duration">⏱️ ${duration} minutes</div>`;
+                }
+                if (event.notes) {
+                    html += `<div class="event-notes">${event.notes}</div>`;
+                }
+                html += '</div>'; // event-details
+                html += '</div>'; // day-view-event
+
+                // Add travel time indicator if not the last event
+                if (state.settings.includeTravelTime && index < sortedEvents.length - 1 && !event.isAllDay) {
+                    const travelTime = 15; // Mock travel time
+                    html += `<div class="day-view-travel">`;
+                    html += `<div class="travel-icon">🚗</div>`;
+                    html += `<div class="travel-time">~${travelTime} min travel</div>`;
+                    html += '</div>';
+                }
+            });
+
+            html += '</div>'; // day-view-events
+        }
+
+        html += '</div>'; // day-view-timeline
+        html += '</div>'; // calendar-day-view
+
+        container.innerHTML = html;
     }
 
     /**
