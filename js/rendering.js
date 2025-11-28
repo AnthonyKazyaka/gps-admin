@@ -202,7 +202,11 @@ class RenderEngine {
 
         events.forEach(event => {
             const startTime = event.isAllDay ? 'All Day' : Utils.formatTime(event.start);
-            const duration = event.isAllDay ? 'All Day' : `${Math.round((event.end - event.start) / (1000 * 60))} min`;
+            // Ensure dates are Date objects for duration calculation
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+            const duration = event.isAllDay ? 'All Day' : (isNaN(durationMinutes) ? '' : `${durationMinutes} min`);
             const icon = this.eventProcessor.getEventTypeIcon(event.type);
             const isWorkEvent = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
             
