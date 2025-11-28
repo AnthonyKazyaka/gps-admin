@@ -1121,51 +1121,114 @@
         padding: var(--spacing-xs);
     }
 
-    /* Week view mobile */
+    /* Week view mobile - vertical card layout */
     .calendar-week-view {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
+    }
+
+    /* Hide weekday headers on mobile for week view - day names are shown inline */
+    .calendar-weekdays.week-view-active {
+        display: none;
     }
 
     .calendar-week-days {
-        gap: var(--spacing-sm);
+        grid-template-columns: 1fr;
+        gap: var(--spacing-xs);
     }
 
     .calendar-week-day {
-        padding: var(--spacing-sm);
-        min-height: 200px;
+        flex-direction: row;
+        align-items: center;
+        padding: var(--spacing-sm) var(--spacing-md);
+        min-height: auto;
+        gap: var(--spacing-md);
+    }
+
+    .calendar-week-day:hover {
+        transform: translateX(4px);
+    }
+
+    /* Mobile day header - horizontal layout */
+    .calendar-week-day-header {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--spacing-md);
+        padding-bottom: 0;
+        border-bottom: none;
+        min-width: 100px;
     }
 
     .calendar-week-day-number {
-        font-size: 1.25rem;
+        font-size: 1.5rem;
+        font-weight: 700;
     }
 
-    .calendar-week-day-count,
+    .calendar-week-day-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .calendar-week-day-count {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
     .calendar-week-day-hours {
-        font-size: 0.65rem;
+        font-size: 0.7rem;
     }
 
+    /* Mobile stats - compact inline display */
     .calendar-week-day-stats {
-        font-size: 0.65rem;
-        padding: var(--spacing-xs);
+        display: none;
     }
 
-    .calendar-week-event {
-        padding: var(--spacing-xs);
-        font-size: 0.65rem;
+    /* Mobile events list - hidden by default, shown on tap via day details modal */
+    .calendar-week-day-events {
+        display: none;
     }
 
-    .event-time-badge {
-        font-size: 0.6rem;
-        padding: 2px 4px;
-        min-width: 45px;
+    /* Mobile day name label - show inline */
+    .calendar-week-day::before {
+        content: attr(data-day-name);
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        min-width: 32px;
     }
 
-    .calendar-week-event .event-title {
-        font-size: 0.65rem;
+    /* Housesit indicator on mobile */
+    .calendar-day-housesit-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: auto;
+        bottom: 0;
+        width: 4px;
+        height: auto;
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
     }
 
-    .event-meta {
-        font-size: 0.6rem;
+    .calendar-day-housesit-bar.housesit-ending {
+        right: auto;
+        height: 50%;
+        top: auto;
+        bottom: 0;
+        border-radius: 0 0 0 var(--radius-md);
+    }
+
+    .calendar-week-day.has-housesit,
+    .calendar-week-day.has-housesit-ending {
+        padding-left: calc(var(--spacing-md) + 8px);
+    }
+
+    /* Tap hint on mobile */
+    .calendar-week-day::after {
+        content: "›";
+        font-size: 1.25rem;
+        color: var(--gray-400);
+        margin-left: auto;
     }
 
     .templates-grid {

@@ -202,7 +202,11 @@ class RenderEngine {
 
         events.forEach(event => {
             const startTime = event.isAllDay ? 'All Day' : Utils.formatTime(event.start);
-            const duration = event.isAllDay ? 'All Day' : `${Math.round((event.end - event.start) / (1000 * 60))} min`;
+            // Ensure dates are Date objects for duration calculation
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+            const duration = event.isAllDay ? 'All Day' : (isNaN(durationMinutes) ? '' : `${durationMinutes} min`);
             const icon = this.eventProcessor.getEventTypeIcon(event.type);
             const isWorkEvent = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
             
@@ -734,7 +738,10 @@ class RenderEngine {
 
         // Total hours
         const totalMinutes = events.reduce((sum, event) => {
-            return sum + ((event.end - event.start) / (1000 * 60));
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const diff = (endDate - startDate) / (1000 * 60);
+            return sum + (isNaN(diff) ? 0 : diff);
         }, 0);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = Math.round(totalMinutes % 60);
@@ -748,8 +755,11 @@ class RenderEngine {
         // Busiest day
         const dayWorkload = {};
         events.forEach(event => {
-            const dayKey = new Date(event.start).toDateString();
-            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + ((event.end - event.start) / (1000 * 60 * 60));
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            const dayKey = eventStart.toDateString();
+            const diff = (eventEnd - eventStart) / (1000 * 60 * 60);
+            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + (isNaN(diff) ? 0 : diff);
         });
 
         const busiestDay = Object.entries(dayWorkload).reduce((max, entry) => {
@@ -1239,8 +1249,10 @@ class RenderEngine {
         today.setHours(0, 0, 0, 0);
 
         // Render weekday headers into dedicated container
+        // Remove week-view class if present (for month view)
         const weekdaysContainer = document.getElementById('calendar-weekdays');
         if (weekdaysContainer) {
+            weekdaysContainer.classList.remove('week-view-active');
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             weekdaysContainer.innerHTML = dayNames.map(day => 
                 `<div class="calendar-weekday">${day}</div>`
@@ -1344,8 +1356,10 @@ class RenderEngine {
         today.setHours(0, 0, 0, 0);
 
         // Render weekday headers into dedicated container
+        // Add week-view class for mobile styling
         const weekdaysContainer = document.getElementById('calendar-weekdays');
         if (weekdaysContainer) {
+            weekdaysContainer.classList.add('week-view-active');
             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             weekdaysContainer.innerHTML = dayNames.map(day =>
                 `<div class="calendar-weekday">${day}</div>`
@@ -1399,8 +1413,12 @@ class RenderEngine {
             if (hasActiveHousesit) classes += ' has-housesit';
             if (hasHousesitEnding) classes += ' has-housesit-ending';
 
+            // Short day name for mobile display
+            const dayNamesShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayNameShort = dayNamesShort[dateKey.getDay()];
+
             html += `
-                <div class="${classes}" data-date="${dateKey.toISOString()}">
+                <div class="${classes}" data-date="${dateKey.toISOString()}" data-day-name="${dayNameShort}">
                     ${hasActiveHousesit ? '<div class="calendar-day-housesit-bar" title="House sit scheduled"></div>' : ''}
                     ${hasHousesitEnding ? '<div class="calendar-day-housesit-bar housesit-ending" title="House sit ends"></div>' : ''}
 
@@ -1443,7 +1461,10 @@ class RenderEngine {
                         ${workEvents.map(event => {
                             const startTime = Utils.formatTime(event.start);
                             const endTime = Utils.formatTime(event.end);
-                            const duration = Math.round((event.end - event.start) / (1000 * 60)); // minutes
+                            const eventStart = new Date(event.start);
+                            const eventEnd = new Date(event.end);
+                            const durationMinutes = Math.round((eventEnd - eventStart) / (1000 * 60));
+                            const duration = isNaN(durationMinutes) ? 0 : durationMinutes; // minutes
 
                             let eventType = '';
                             if (this.eventProcessor.isOvernightEvent(event)) {
