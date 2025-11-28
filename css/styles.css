@@ -1295,6 +1295,42 @@ label {
     .modal-content {
         margin: 10% var(--spacing-md);
     }
+
+    /* Calendar view header - stack on mobile */
+    .view-header {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .view-actions {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+        width: 100%;
+    }
+
+    .view-actions .btn-group {
+        order: -1;
+        flex-shrink: 0;
+    }
+
+    .view-actions .btn-group .btn {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: 0.75rem;
+    }
+
+    .view-actions .btn {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        font-size: 0.75rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .view-actions .btn svg {
+        width: 14px;
+        height: 14px;
+    }
 }
 
 /* Calendar Selection */

@@ -202,7 +202,11 @@ class RenderEngine {
 
         events.forEach(event => {
             const startTime = event.isAllDay ? 'All Day' : Utils.formatTime(event.start);
-            const duration = event.isAllDay ? 'All Day' : `${Math.round((event.end - event.start) / (1000 * 60))} min`;
+            // Ensure dates are Date objects for duration calculation
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const durationMinutes = Math.round((endDate - startDate) / (1000 * 60));
+            const duration = event.isAllDay ? 'All Day' : (isNaN(durationMinutes) ? '' : `${durationMinutes} min`);
             const icon = this.eventProcessor.getEventTypeIcon(event.type);
             const isWorkEvent = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
             
@@ -734,7 +738,10 @@ class RenderEngine {
 
         // Total hours
         const totalMinutes = events.reduce((sum, event) => {
-            return sum + ((event.end - event.start) / (1000 * 60));
+            const startDate = new Date(event.start);
+            const endDate = new Date(event.end);
+            const diff = (endDate - startDate) / (1000 * 60);
+            return sum + (isNaN(diff) ? 0 : diff);
         }, 0);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = Math.round(totalMinutes % 60);
@@ -748,8 +755,11 @@ class RenderEngine {
         // Busiest day
         const dayWorkload = {};
         events.forEach(event => {
-            const dayKey = new Date(event.start).toDateString();
-            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + ((event.end - event.start) / (1000 * 60 * 60));
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            const dayKey = eventStart.toDateString();
+            const diff = (eventEnd - eventStart) / (1000 * 60 * 60);
+            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + (isNaN(diff) ? 0 : diff);
         });
 
         const busiestDay = Object.entries(dayWorkload).reduce((max, entry) => {
@@ -1173,7 +1183,36 @@ class RenderEngine {
         const title = document.getElementById('calendar-title');
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December'];
-        title.textContent = `${monthNames[state.currentDate.getMonth()]} ${state.currentDate.getFullYear()}`;
+
+        // Set title based on view mode
+        if (state.calendarView === 'week') {
+            // Calculate week range for title
+            const currentDate = new Date(state.currentDate);
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+            const startMonth = monthNames[startOfWeek.getMonth()];
+            const endMonth = monthNames[endOfWeek.getMonth()];
+            const startDay = startOfWeek.getDate();
+            const endDay = endOfWeek.getDate();
+            const year = startOfWeek.getFullYear();
+            const endYear = endOfWeek.getFullYear();
+
+            if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+                // Same month
+                title.textContent = `${startMonth} ${startDay}-${endDay}, ${year}`;
+            } else if (startOfWeek.getFullYear() === endOfWeek.getFullYear()) {
+                // Different months, same year
+                title.textContent = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+            } else {
+                // Different years
+                title.textContent = `${startMonth} ${startDay}, ${year} - ${endMonth} ${endDay}, ${endYear}`;
+            }
+        } else {
+            title.textContent = `${monthNames[state.currentDate.getMonth()]} ${state.currentDate.getFullYear()}`;
+        }
 
         // Render based on view mode
         switch (state.calendarView) {
@@ -1210,8 +1249,10 @@ class RenderEngine {
         today.setHours(0, 0, 0, 0);
 
         // Render weekday headers into dedicated container
+        // Remove week-view class if present (for month view)
         const weekdaysContainer = document.getElementById('calendar-weekdays');
         if (weekdaysContainer) {
+            weekdaysContainer.classList.remove('week-view-active');
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             weekdaysContainer.innerHTML = dayNames.map(day => 
                 `<div class="calendar-weekday">${day}</div>`
@@ -1305,7 +1346,169 @@ class RenderEngine {
      * Render week calendar view
      */
     renderWeekView(container, state) {
-        container.innerHTML = '<p class="text-muted">Week view coming soon...</p>';
+        // Get the start of the week (Sunday) for the current date
+        const currentDate = new Date(state.currentDate);
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Render weekday headers into dedicated container
+        // Add week-view class for mobile styling
+        const weekdaysContainer = document.getElementById('calendar-weekdays');
+        if (weekdaysContainer) {
+            weekdaysContainer.classList.add('week-view-active');
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            weekdaysContainer.innerHTML = dayNames.map(day =>
+                `<div class="calendar-weekday">${day}</div>`
+            ).join('');
+        }
+
+        // Build week view grid
+        let html = '<div class="calendar-week-view">';
+        html += '<div class="calendar-week-days">';
+
+        // Generate 7 days (Sunday through Saturday)
+        for (let i = 0; i < 7; i++) {
+            const dateKey = new Date(startOfWeek);
+            dateKey.setDate(startOfWeek.getDate() + i);
+            dateKey.setHours(0, 0, 0, 0);
+
+            const dayEvents = this.eventProcessor.getEventsForDate(state.events, dateKey);
+
+            const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, dateKey, {
+                includeTravel: state.settings.includeTravelTime
+            });
+
+            // Count only work events for display (excluding ending housesits)
+            const workEvents = dayEvents.filter(event => {
+                const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event);
+                if (!isWork) return false;
+
+                // Exclude overnight events that are ending
+                if (this.eventProcessor.isOvernightEvent(event)) {
+                    return !this.eventProcessor.isOvernightEndDate(event, dateKey);
+                }
+                return true;
+            });
+            const workEventCount = workEvents.length;
+
+            const hours = Utils.formatHours(metrics.totalHours);
+            const workHours = Utils.formatHours(metrics.workHours);
+            const travelHours = Utils.formatHours(metrics.travelHours);
+            const workloadLevel = metrics.level;
+            const housesits = metrics.housesits;
+
+            // Check if any housesits are ending on this day
+            const hasHousesitEnding = housesits.some(h => h.isEndDate);
+            const hasActiveHousesit = housesits.some(h => !h.isEndDate);
+
+            const isToday = dateKey.getTime() === today.getTime();
+
+            let classes = 'calendar-week-day';
+            if (isToday) classes += ' today';
+            if (workEventCount > 0) classes += ` ${workloadLevel}`;
+            if (hasActiveHousesit) classes += ' has-housesit';
+            if (hasHousesitEnding) classes += ' has-housesit-ending';
+
+            // Short day name for mobile display
+            const dayNamesShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayNameShort = dayNamesShort[dateKey.getDay()];
+
+            html += `
+                <div class="${classes}" data-date="${dateKey.toISOString()}" data-day-name="${dayNameShort}">
+                    ${hasActiveHousesit ? '<div class="calendar-day-housesit-bar" title="House sit scheduled"></div>' : ''}
+                    ${hasHousesitEnding ? '<div class="calendar-day-housesit-bar housesit-ending" title="House sit ends"></div>' : ''}
+
+                    <div class="calendar-week-day-header">
+                        <div class="calendar-week-day-number">${dateKey.getDate()}</div>
+                        ${workEventCount > 0 ? `
+                            <div class="calendar-week-day-summary">
+                                <div class="calendar-week-day-count">${workEventCount} appt${workEventCount !== 1 ? 's' : ''}</div>
+                                <div class="calendar-week-day-hours">${hours} total</div>
+                            </div>
+                        ` : '<div class="calendar-week-day-summary text-muted">No appointments</div>'}
+                    </div>
+
+                    ${workEventCount > 0 ? `
+                        <div class="calendar-week-day-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Work:</span>
+                                <span class="stat-value">${workHours}</span>
+                            </div>
+                            ${metrics.travelMinutes > 0 ? `
+                                <div class="stat-item">
+                                    <span class="stat-label">Travel:</span>
+                                    <span class="stat-value">${travelHours}</span>
+                                </div>
+                            ` : ''}
+                            ${hasActiveHousesit ? `
+                                <div class="stat-item housesit-badge">
+                                    <span style="color: #8B5CF6;">🏠 Housesit</span>
+                                </div>
+                            ` : ''}
+                            ${hasHousesitEnding && !hasActiveHousesit ? `
+                                <div class="stat-item housesit-badge">
+                                    <span style="color: #A78BFA;">🏠 Ends</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+
+                    <div class="calendar-week-day-events">
+                        ${workEvents.map(event => {
+                            const startTime = Utils.formatTime(event.start);
+                            const endTime = Utils.formatTime(event.end);
+                            const eventStart = new Date(event.start);
+                            const eventEnd = new Date(event.end);
+                            const durationMinutes = Math.round((eventEnd - eventStart) / (1000 * 60));
+                            const duration = isNaN(durationMinutes) ? 0 : durationMinutes; // minutes
+
+                            let eventType = '';
+                            if (this.eventProcessor.isOvernightEvent(event)) {
+                                eventType = 'overnight';
+                            } else if (event.title && event.title.toLowerCase().includes('dropin')) {
+                                eventType = 'dropin';
+                            } else if (event.title && (event.title.includes('MG') || event.title.toLowerCase().includes('meet'))) {
+                                eventType = 'meet-greet';
+                            } else {
+                                eventType = 'walk';
+                            }
+
+                            return `
+                                <div class="calendar-week-event ${eventType}">
+                                    <div class="event-time-badge">${startTime}</div>
+                                    <div class="event-details">
+                                        <div class="event-title">${event.title || 'Untitled'}</div>
+                                        <div class="event-meta">
+                                            ${event.location ? `<span class="event-location">📍 ${event.location}</span>` : ''}
+                                            ${duration > 0 ? `<span class="event-duration">${duration} min</span>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div></div>';
+        container.innerHTML = html;
+
+        // Add click handlers to calendar days
+        container.querySelectorAll('.calendar-week-day').forEach(dayElement => {
+            dayElement.addEventListener('click', () => {
+                const dateStr = dayElement.dataset.date;
+                if (window.gpsApp && window.gpsApp.showDayDetails) {
+                    window.gpsApp.showDayDetails(new Date(dateStr));
+                } else {
+                    this.showDayDetails(state, new Date(dateStr));
+                }
+            });
+        });
     }
 
     /**
