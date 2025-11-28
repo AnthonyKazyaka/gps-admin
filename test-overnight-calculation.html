@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Overnight Calculation</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-case {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4F46E5;
+        }
+        .pass { border-left-color: #10b981; background: #f0fdf4; }
+        .fail { border-left-color: #ef4444; background: #fef2f2; }
+        h2 { color: #1f2937; }
+        .result { font-weight: bold; margin-top: 10px; }
+        code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Overnight Event Calculation Test</h1>
+    <p>Testing the new multi-day event duration calculation logic.</p>
+    
+    <div id="test-results"></div>
+
+    <script>
+        // Helper function from app.js
+        function calculateEventDurationForDay(event, targetDate) {
+            // All-day events (like birthdays) don't count toward workload
+            if (event.isAllDay) {
+                return 0;
+            }
+            
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            
+            const dayStart = new Date(targetDate);
+            dayStart.setHours(0, 0, 0, 0);
+            
+            const dayEnd = new Date(targetDate);
+            dayEnd.setHours(23, 59, 59, 999);
+            
+            if (eventEnd <= dayStart || eventStart > dayEnd) {
+                return 0;
+            }
+            
+            const isOvernightType = event.type === 'overnight' || 
+                                   event.title?.toLowerCase().includes('overnight') ||
+                                   event.title?.toLowerCase().includes('boarding');
+            
+            if (isOvernightType) {
+                const overlapStart = eventStart > dayStart ? eventStart : dayStart;
+                const overlapEnd = eventEnd < dayEnd ? eventEnd : dayEnd;
+                const actualMinutes = (overlapEnd - overlapStart) / (1000 * 60);
+                return Math.min(actualMinutes, 12 * 60);
+            }
+            
+            const overlapStart = eventStart > dayStart ? eventStart : dayStart;
+            const overlapEnd = eventEnd < dayEnd ? eventEnd : dayEnd;
+            const minutes = (overlapEnd - overlapStart) / (1000 * 60);
+            
+            return Math.max(0, minutes);
+        }
+
+        // Test cases
+        const tests = [
+            {
+                name: "Single day overnight (8 PM - 8 AM)",
+                event: {
+                    title: "Max - Overnight Boarding",
+                    type: "overnight",
+                    start: new Date(2025, 0, 10, 20, 0), // Jan 10, 8 PM
+                    end: new Date(2025, 0, 11, 8, 0)     // Jan 11, 8 AM
+                },
+                targetDate: new Date(2025, 0, 10),
+                expectedMinutes: 240, // 4 hours on Jan 10 (8 PM - midnight)
+                expectedHours: 4
+            },
+            {
+                name: "Single day overnight - next morning",
+                event: {
+                    title: "Max - Overnight Boarding",
+                    type: "overnight",
+                    start: new Date(2025, 0, 10, 20, 0), // Jan 10, 8 PM
+                    end: new Date(2025, 0, 11, 8, 0)     // Jan 11, 8 AM
+                },
+                targetDate: new Date(2025, 0, 11),
+                expectedMinutes: 480, // 8 hours on Jan 11 (midnight - 8 AM)
+                expectedHours: 8
+            },
+            {
+                name: "Multi-day overnight (3 nights) - First night",
+                event: {
+                    title: "Bella - Overnight Sitting",
+                    type: "overnight",
+                    start: new Date(2025, 0, 10, 20, 0), // Jan 10, 8 PM
+                    end: new Date(2025, 0, 13, 8, 0)     // Jan 13, 8 AM
+                },
+                targetDate: new Date(2025, 0, 10),
+                expectedMinutes: 240, // 4 hours (8 PM - midnight)
+                expectedHours: 4
+            },
+            {
+                name: "Multi-day overnight (3 nights) - Middle day",
+                event: {
+                    title: "Bella - Overnight Sitting",
+                    type: "overnight",
+                    start: new Date(2025, 0, 10, 20, 0), // Jan 10, 8 PM
+                    end: new Date(2025, 0, 13, 8, 0)     // Jan 13, 8 AM
+                },
+                targetDate: new Date(2025, 0, 11),
+                expectedMinutes: 720, // 12 hours max (capped)
+                expectedHours: 12
+            },
+            {
+                name: "Multi-day overnight (3 nights) - Last morning",
+                event: {
+                    title: "Bella - Overnight Sitting",
+                    type: "overnight",
+                    start: new Date(2025, 0, 10, 20, 0), // Jan 10, 8 PM
+                    end: new Date(2025, 0, 13, 8, 0)     // Jan 13, 8 AM
+                },
+                targetDate: new Date(2025, 0, 13),
+                expectedMinutes: 480, // 8 hours (midnight - 8 AM)
+                expectedHours: 8
+            },
+            {
+                name: "Regular 2-hour appointment",
+                event: {
+                    title: "Charlie - Dog Walk",
+                    type: "walk",
+                    start: new Date(2025, 0, 10, 10, 0),
+                    end: new Date(2025, 0, 10, 12, 0)
+                },
+                targetDate: new Date(2025, 0, 10),
+                expectedMinutes: 120,
+                expectedHours: 2
+            },
+            {
+                name: "Event on different day (should be 0)",
+                event: {
+                    title: "Test Event",
+                    type: "walk",
+                    start: new Date(2025, 0, 10, 10, 0),
+                    end: new Date(2025, 0, 10, 12, 0)
+                },
+                targetDate: new Date(2025, 0, 15),
+                expectedMinutes: 0,
+                expectedHours: 0
+            },
+            {
+                name: "All-day event (birthday - should be 0)",
+                event: {
+                    title: "John's Birthday",
+                    type: "other",
+                    start: new Date(2025, 0, 10, 0, 0),
+                    end: new Date(2025, 0, 11, 0, 0),
+                    isAllDay: true
+                },
+                targetDate: new Date(2025, 0, 10),
+                expectedMinutes: 0,
+                expectedHours: 0
+            }
+        ];
+
+        // Run tests
+        const resultsDiv = document.getElementById('test-results');
+        let passCount = 0;
+        let failCount = 0;
+
+        tests.forEach((test, index) => {
+            const actualMinutes = calculateEventDurationForDay(test.event, test.targetDate);
+            const actualHours = actualMinutes / 60;
+            const passed = Math.abs(actualMinutes - test.expectedMinutes) < 1; // Allow 1 minute tolerance
+
+            const testDiv = document.createElement('div');
+            testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`;
+            
+            testDiv.innerHTML = `
+                <h3>Test ${index + 1}: ${test.name}</h3>
+                <p><strong>Event:</strong> ${test.event.title}</p>
+                <p><strong>Date Range:</strong> ${test.event.start.toLocaleString()} → ${test.event.end.toLocaleString()}</p>
+                <p><strong>Target Date:</strong> ${test.targetDate.toDateString()}</p>
+                <p><strong>Expected:</strong> ${test.expectedMinutes} minutes (${test.expectedHours} hours)</p>
+                <p><strong>Actual:</strong> ${Math.round(actualMinutes)} minutes (${actualHours.toFixed(2)} hours)</p>
+                <p class="result">${passed ? '✅ PASS' : '❌ FAIL'}</p>
+            `;
+
+            resultsDiv.appendChild(testDiv);
+
+            if (passed) passCount++;
+            else failCount++;
+        });
+
+        // Summary
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'test-case';
+        summaryDiv.innerHTML = `
+            <h2>Test Summary</h2>
+            <p><strong>Total Tests:</strong> ${tests.length}</p>
+            <p><strong>Passed:</strong> ${passCount} ✅</p>
+            <p><strong>Failed:</strong> ${failCount} ❌</p>
+            <p><strong>Success Rate:</strong> ${((passCount / tests.length) * 100).toFixed(1)}%</p>
+        `;
+        resultsDiv.appendChild(summaryDiv);
+    </script>
+</body>
+</html>
