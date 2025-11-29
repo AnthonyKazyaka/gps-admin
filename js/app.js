@@ -32,16 +32,16 @@ class GPSAdminApp {
                         burnout: 8
                     },
                     weekly: {
-                        comfortable: 35,
-                        busy: 45,
-                        high: 55,
-                        burnout: 65
+                        comfortable: 14,
+                        busy: 28,
+                        high: 42,
+                        burnout: 56
                     },
                     monthly: {
-                        comfortable: 140,
-                        busy: 180,
-                        high: 220,
-                        burnout: 260
+                        comfortable: 60,
+                        busy: 120,
+                        high: 180,
+                        burnout: 240
                     }
                 },
                 api: {

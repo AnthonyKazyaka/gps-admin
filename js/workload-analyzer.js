@@ -10,8 +10,8 @@ class WorkloadAnalyzer {
             busy: 4,             // Daily hours when getting busy
             high: 6,             // Daily hours for high workload
             burnout: 8,          // Daily hours for single-day burnout risk
-            weeklyComfortable: 35,  // Weekly hours for sustainable workload
-            weeklyHigh: 50,         // Weekly hours that's getting unsustainable
+            weeklyComfortable: 14,  // Weekly hours for sustainable workload
+            weeklyHigh: 42,         // Weekly hours that's getting unsustainable
             consecutiveDaysWarning: 5,  // Days in a row before warning
             consecutiveDaysCritical: 7, // Days in a row before critical
             ...thresholds
