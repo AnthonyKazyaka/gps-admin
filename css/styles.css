@@ -1492,7 +1492,7 @@ label {
     display: flex;
     align-items: flex-end;
     justify-content: space-around;
-    gap: 8px;
+    gap: 2px;
     z-index: 2;
 }
 
@@ -1501,8 +1501,9 @@ label {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     min-width: 0; /* Allow flex items to shrink below content size */
+    max-width: 24px; /* Limit max width for many items */
 }
 
 .bar {
@@ -1583,11 +1584,12 @@ label {
 }
 
 .bar-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-height: 14px; /* Reserve space even for empty labels */
 }
 
 /* Donut Chart Styles */
@@ -2040,22 +2042,178 @@ label {
     display: flex;
     align-items: center;
     gap: 4px;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    background: var(--gray-100);
 }
 
 .stat-comparison.positive {
     color: var(--success-700);
+    background: var(--success-50);
 }
 
 .stat-comparison.negative {
     color: var(--danger-700);
+    background: var(--danger-50);
 }
 
 .stat-comparison.neutral {
     color: var(--gray-600);
+    background: var(--gray-100);
 }
 
 .stat-comparison:empty {
     display: none;
+}
+
+.comparison-arrow {
+    flex-shrink: 0;
+}
+
+.comparison-value {
+    font-weight: 700;
+}
+
+.comparison-label {
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* Horizontal Bar Chart */
+.horizontal-bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.h-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.h-bar-label {
+    min-width: 100px;
+    max-width: 120px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--gray-700);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.h-bar-track {
+    flex: 1;
+    height: 24px;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.h-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    min-width: 32px;
+    transition: width 0.5s ease-out;
+}
+
+.h-bar-value {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhanced Insight Cards */
+.insight-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-500);
+    transition: all var(--transition-base);
+}
+
+.insight-card:hover {
+    background: var(--gray-100);
+    transform: translateX(2px);
+}
+
+.insight-card.warning {
+    background: #FEF3C7;
+    border-left-color: var(--warning-500);
+}
+
+.insight-card.opportunity {
+    background: var(--success-50);
+    border-left-color: var(--success-500);
+}
+
+.insight-card.positive {
+    background: var(--primary-50);
+    border-left-color: var(--primary-500);
+}
+
+.insight-card.info {
+    background: var(--info-50);
+    border-left-color: var(--info-500);
+}
+
+.insight-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+}
+
+.insight-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.insight-title {
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 4px;
+    font-size: 0.9375rem;
+}
+
+.insight-description {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Full-width analytics card */
+.analytics-card-full {
+    grid-column: 1 / -1;
+}
+
+/* Insights list layout */
+.insights-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+@media (max-width: 768px) {
+    .insights-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .h-bar-label {
+        min-width: 80px;
+        max-width: 100px;
+        font-size: 0.75rem;
+    }
 }
 
 /* Chart Threshold Lines */
@@ -2127,6 +2285,29 @@ label {
 
 .threshold-line.overload::after {
     color: var(--danger-600);
+}
+
+/* Average Line */
+.average-line {
+    height: 2px;
+    background: transparent;
+    border-top: 3px solid var(--primary-600);
+    pointer-events: none;
+    z-index: 3;
+}
+
+.average-line::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 8px;
+    top: -12px;
+    font-size: 0.75rem;
+    color: var(--primary-700);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Progress Bar */

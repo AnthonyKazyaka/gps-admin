@@ -640,11 +640,12 @@ class RenderEngine {
 
         // Render charts
         this.renderWorkloadTrendChart(events, startDate, endDate, range, state.settings);
+        this.renderClientDistributionChart(events);
         this.renderAppointmentTypesChart(events);
         this.renderBusiestDaysChart(events);
         this.renderBusiestTimesChart(events);
-        this.renderTemplateUsageChart(events, templatesManager);
-        this.renderAnalyticsInsights(events, range);
+        this.renderDurationDistributionChart(events);
+        this.renderAnalyticsInsights(events, range, state);
     }
 
     /**
@@ -797,16 +798,27 @@ class RenderEngine {
         if (groupByDay) {
             // Daily grouping
             let currentDate = new Date(startDate);
+            let dayIndex = 0;
             while (currentDate <= endDate) {
                 const dayKey = currentDate.toDateString();
                 const dayEvents = events.filter(e => new Date(e.start).toDateString() === dayKey);
-                const hours = dayEvents.reduce((sum, e) => sum + ((e.end - e.start) / (1000 * 60 * 60)), 0);
+                const hours = dayEvents.reduce((sum, e) => {
+                    const start = new Date(e.start);
+                    const end = new Date(e.end);
+                    const diff = (end - start) / (1000 * 60 * 60);
+                    return sum + (isNaN(diff) ? 0 : diff);
+                }, 0);
 
+                // For month view, only show labels every 5 days to reduce crowding
+                const showLabel = range === 'week' || (dayIndex % 5 === 0);
+                
                 dataPoints.push({
                     label: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                     value: hours,
-                    shortLabel: currentDate.getDate().toString()
+                    shortLabel: showLabel ? currentDate.getDate().toString() : ''
                 });
+                
+                dayIndex++;
 
                 currentDate.setDate(currentDate.getDate() + 1);
             }
@@ -823,7 +835,12 @@ class RenderEngine {
                     return eventDate >= weekStart && eventDate <= weekEnd;
                 });
 
-                const hours = weekEvents.reduce((sum, e) => sum + ((e.end - e.start) / (1000 * 60 * 60)), 0);
+                const hours = weekEvents.reduce((sum, e) => {
+                    const start = new Date(e.start);
+                    const end = new Date(e.end);
+                    const diff = (end - start) / (1000 * 60 * 60);
+                    return sum + (isNaN(diff) ? 0 : diff);
+                }, 0);
 
                 dataPoints.push({
                     label: 'Week ' + weekNum,
@@ -841,13 +858,22 @@ class RenderEngine {
     }
 
     /**
-     * Render bar chart with threshold lines
+     * Render bar chart with threshold lines and average indicator
      */
     renderBarChartWithThresholds(container, data, settings) {
         const thresholds = settings.thresholds.daily;
-        const displayCap = 20; // Cap display at 20h for better scale
-        const actualMax = Math.max(...data.map(d => d.value), thresholds.burnout);
-        const maxValue = Math.min(actualMax, displayCap);
+        // Use a reasonable max that shows thresholds well, at minimum show up to the overload threshold
+        const minDisplayMax = thresholds.high + 2; // At least show a bit above overload threshold
+        const dataMax = Math.max(...data.map(d => d.value));
+        const displayCap = 12; // Cap at 12h for daily view to keep thresholds visible
+        const maxValue = Math.max(minDisplayMax, Math.min(dataMax, displayCap));
+
+        // Calculate average
+        const nonZeroValues = data.filter(d => d.value > 0);
+        const avgValue = nonZeroValues.length > 0 
+            ? nonZeroValues.reduce((sum, d) => sum + d.value, 0) / nonZeroValues.length 
+            : 0;
+        const avgPos = Math.min((avgValue / maxValue * 100), 100);
 
         // Calculate threshold positions (as percentage from bottom)
         const comfortablePos = (thresholds.comfortable / maxValue * 100);
@@ -859,6 +885,8 @@ class RenderEngine {
             '<div class="threshold-zone comfortable" style="position: absolute; bottom: 0; left: 0; right: 0; height: ' + comfortablePos + '%;"></div>' +
             '<div class="threshold-zone busy" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0; height: ' + (busyPos - comfortablePos) + '%;"></div>' +
             '<div class="threshold-zone overload" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0; height: ' + (100 - busyPos) + '%;"></div>' +
+            // Average line (rendered before threshold lines so it appears below them visually)
+            (avgValue > 0 ? '<div class="average-line" style="position: absolute; bottom: ' + avgPos + '%; left: 0; right: 0;" data-label="' + Utils.formatHours(avgValue) + ' avg"></div>' : '') +
             // Threshold lines
             '<div class="threshold-line comfortable" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0;" data-label="' + thresholds.comfortable + 'h comfortable"></div>' +
             '<div class="threshold-line busy" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0;" data-label="' + thresholds.busy + 'h busy"></div>' +
@@ -882,9 +910,9 @@ class RenderEngine {
                 
                 return '<div class="bar-chart-item">' +
                     '<div class="bar animated ' + barStatus + (isOverflow ? ' overflow' : '') + '" style="height: ' + heightPercent + '%;" title="' + item.label + ': ' + Utils.formatHours(item.value) + '">' +
-                    '<div class="bar-value">' + valueText + (isOverflow ? '+' : '') + '</div>' +
+                    (item.value > 0 ? '<div class="bar-value">' + valueText + (isOverflow ? '+' : '') + '</div>' : '') +
                     '</div>' +
-                    '<div class="bar-label">' + (item.shortLabel || item.label) + '</div>' +
+                    '<div class="bar-label">' + (item.shortLabel !== undefined ? item.shortLabel : item.label) + '</div>' +
                     '</div>';
             }).join('') + '</div>' +
         '</div>';
@@ -899,25 +927,61 @@ class RenderEngine {
     }
 
     /**
-     * Render appointment types chart
+     * Render appointment types chart - infers service types from event titles
      */
     renderAppointmentTypesChart(events) {
         const container = document.getElementById('appointment-types-chart');
         if (!container) return;
 
-        // Count by type
+        // Infer service type from event title patterns
         const typeCounts = {};
+        const typeLabels = {
+            'meet-greet': 'Meet & Greet',
+            'overnight': 'Overnight/Housesit',
+            'walk': 'Dog Walk',
+            'short-visit': 'Short Visit (15-30 min)',
+            'long-visit': 'Long Visit (45-60 min)',
+            'other': 'Other'
+        };
+
         events.forEach(event => {
-            const type = event.type || 'Other';
+            // Use EventProcessor's detectServiceType logic
+            let type = 'other';
+            const title = event.title || '';
+            const titleLower = title.toLowerCase();
+            
+            if (/\b(MG|M&G|Meet\s*&\s*Greet)\b/i.test(title)) {
+                type = 'meet-greet';
+            } else if (titleLower.includes('overnight') || titleLower.includes('housesit') || /\bhs\b/i.test(title)) {
+                type = 'overnight';
+            } else if (titleLower.includes('walk')) {
+                type = 'walk';
+            } else if (/\b(15|20|30)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i.test(title)) {
+                type = 'short-visit';
+            } else if (/\b(45|60)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i.test(title)) {
+                type = 'long-visit';
+            }
+            
             typeCounts[type] = (typeCounts[type] || 0) + 1;
         });
+
+        // If all events are "other", show a helpful message
+        if (Object.keys(typeCounts).length === 1 && typeCounts['other']) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 24px; color: var(--gray-500);">
+                    <p style="margin-bottom: 8px;">📋 Service types detected from event titles</p>
+                    <p style="font-size: 0.8rem;">Events with duration suffixes (e.g., "Pet Name 30") will be categorized automatically</p>
+                </div>
+            `;
+            return;
+        }
 
         // Convert to array and sort
         const data = Object.entries(typeCounts).map(entry => {
             const type = entry[0];
             const count = entry[1];
             return {
-                label: type.charAt(0).toUpperCase() + type.slice(1),
+                label: typeLabels[type] || type,
                 value: count,
                 percentage: (count / events.length * 100).toFixed(1)
             };
@@ -951,34 +1015,34 @@ class RenderEngine {
     }
 
     /**
-     * Render busiest times chart
+     * Render busiest times chart - with more granular time slots
      */
     renderBusiestTimesChart(events) {
         const container = document.getElementById('busiest-times-chart');
         if (!container) return;
 
-        const timeSlots = {
-            'Morning': [6, 9],
-            'Mid-Morning': [9, 12],
-            'Afternoon': [12, 15],
-            'Late Afternoon': [15, 18],
-            'Evening': [18, 21]
-        };
+        // More granular 2-hour time slots with shorter labels
+        const timeSlots = [
+            { label: '6-8am', shortLabel: '6-8', start: 6, end: 8 },
+            { label: '8-10am', shortLabel: '8-10', start: 8, end: 10 },
+            { label: '10-12pm', shortLabel: '10-12', start: 10, end: 12 },
+            { label: '12-2pm', shortLabel: '12-2', start: 12, end: 14 },
+            { label: '2-4pm', shortLabel: '2-4', start: 14, end: 16 },
+            { label: '4-6pm', shortLabel: '4-6', start: 16, end: 18 },
+            { label: '6-8pm', shortLabel: '6-8', start: 18, end: 20 },
+            { label: '8-10pm', shortLabel: '8+', start: 20, end: 24 }
+        ];
 
-        const data = Object.entries(timeSlots).map(entry => {
-            const label = entry[0];
-            const times = entry[1];
-            const start = times[0];
-            const end = times[1];
+        const data = timeSlots.map(slot => {
             const count = events.filter(event => {
                 const hour = new Date(event.start).getHours();
-                return hour >= start && hour < end;
+                return hour >= slot.start && hour < slot.end;
             }).length;
 
             return {
-                label,
+                label: slot.label,
                 value: count,
-                shortLabel: label // Use full label
+                shortLabel: slot.shortLabel
             };
         });
 
@@ -986,52 +1050,160 @@ class RenderEngine {
     }
 
     /**
-     * Render template usage chart
+     * Render client distribution chart - extracts client/pet names from event titles
      */
-    renderTemplateUsageChart(events, templatesManager) {
-        const container = document.getElementById('template-usage-chart');
-        if (!container || !templatesManager) return;
+    renderClientDistributionChart(events) {
+        const container = document.getElementById('client-distribution-chart');
+        if (!container) return;
 
-        // Count template usage
-        const templateCounts = {};
+        // Extract client/pet names from event titles
+        // Common pattern: "Pet Name Duration" or "Pet Name HS"
+        const clientCounts = {};
+        
         events.forEach(event => {
-            if (event.templateId) {
-                const template = templatesManager.getTemplateById(event.templateId);
-                if (template) {
-                    const key = template.name;
-                    templateCounts[key] = (templateCounts[key] || 0) + 1;
-                }
-            }
+            const title = event.title || '';
+            // Remove duration suffix and parenthetical notes to get client/pet name
+            let clientName = title
+                .replace(/\([^)]*\)/g, '')  // Remove parenthetical notes
+                .replace(/\b(15|20|30|45|60)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i, '') // Remove duration suffix
+                .replace(/\b(HS|Housesit|MG|M&G)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i, '') // Remove HS/MG suffix
+                .replace(/\s*(Start|1st|2nd|3rd|Last)\s*$/i, '') // Remove sequence markers
+                .trim();
+            
+            // Skip empty or too short names
+            if (clientName.length < 2) return;
+            
+            // Skip personal events that might have slipped through
+            if (/^(off|lunch|appointment)/i.test(clientName)) return;
+            
+            clientCounts[clientName] = (clientCounts[clientName] || 0) + 1;
         });
 
-        if (Object.keys(templateCounts).length === 0) {
-            container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 48px;">No template usage data</p>';
+        if (Object.keys(clientCounts).length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 24px; color: var(--gray-500);">
+                    <p>📋 No client data detected</p>
+                    <p style="font-size: 0.8rem;">Event titles should follow the pattern: "Pet Name Duration"</p>
+                </div>
+            `;
             return;
         }
 
-        // Convert to sorted array
-        const data = Object.entries(templateCounts)
-            .map(entry => {
-                const name = entry[0];
-                const count = entry[1];
-                return {
-                    label: name,
-                    value: count,
-                    percentage: (count / events.length * 100).toFixed(1)
-                };
-            })
+        // Convert to sorted array (top 8 clients)
+        const data = Object.entries(clientCounts)
+            .map(entry => ({
+                label: entry[0],
+                value: entry[1],
+                percentage: (entry[1] / events.length * 100).toFixed(1)
+            }))
             .sort((a, b) => b.value - a.value)
-            .slice(0, 5); // Top 5
+            .slice(0, 8);
 
-        this.renderDonutChart(container, data);
+        this.renderHorizontalBarChart(container, data);
+    }
+
+    /**
+     * Render duration distribution chart - shows breakdown by visit length
+     */
+    renderDurationDistributionChart(events) {
+        const container = document.getElementById('duration-distribution-chart');
+        if (!container) return;
+
+        // Group events by duration buckets
+        const durationBuckets = {
+            '< 15 min': 0,
+            '15 min': 0,
+            '20 min': 0,
+            '30 min': 0,
+            '45 min': 0,
+            '60 min': 0,
+            '1-2 hrs': 0,
+            '2+ hrs': 0
+        };
+
+        events.forEach(event => {
+            const durationMinutes = (new Date(event.end) - new Date(event.start)) / (1000 * 60);
+            
+            if (durationMinutes < 15) {
+                durationBuckets['< 15 min']++;
+            } else if (durationMinutes < 20) {
+                durationBuckets['15 min']++;
+            } else if (durationMinutes < 25) {
+                durationBuckets['20 min']++;
+            } else if (durationMinutes < 40) {
+                durationBuckets['30 min']++;
+            } else if (durationMinutes < 55) {
+                durationBuckets['45 min']++;
+            } else if (durationMinutes < 75) {
+                durationBuckets['60 min']++;
+            } else if (durationMinutes < 120) {
+                durationBuckets['1-2 hrs']++;
+            } else {
+                durationBuckets['2+ hrs']++;
+            }
+        });
+
+        // Filter out empty buckets and create data array
+        const data = Object.entries(durationBuckets)
+            .filter(([_, count]) => count > 0)
+            .map(([label, count]) => ({
+                label,
+                value: count,
+                shortLabel: label.replace(' min', 'm').replace(' hrs', 'h').replace('< ', '<')
+            }));
+
+        if (data.length === 0) {
+            container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 48px;">No duration data available</p>';
+            return;
+        }
+
+        this.renderBarChart(container, data);
+    }
+
+    /**
+     * Render horizontal bar chart (better for long labels like client names)
+     */
+    renderHorizontalBarChart(container, data) {
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 24px;">No data available</p>';
+            return;
+        }
+
+        const maxValue = Math.max(...data.map(d => d.value), 1);
+        const colors = [
+            '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+            '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'
+        ];
+
+        let html = '<div class="horizontal-bar-chart">';
+        
+        data.forEach((item, idx) => {
+            const widthPercent = (item.value / maxValue * 100);
+            const color = colors[idx % colors.length];
+            
+            html += `
+                <div class="h-bar-item">
+                    <div class="h-bar-label" title="${item.label}">${item.label}</div>
+                    <div class="h-bar-track">
+                        <div class="h-bar-fill" style="width: ${widthPercent}%; background: ${color};">
+                            <span class="h-bar-value">${item.value}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
     }
 
     /**
      * Render analytics insights for a given period
      * @param {Array} events - Array of event objects to analyze
      * @param {string} range - Time range ('week', 'month', 'quarter', 'year')
+     * @param {Object} state - Application state
      */
-    renderAnalyticsInsights(events, range) {
+    renderAnalyticsInsights(events, range, state) {
         const container = document.getElementById('analytics-insights');
         if (!container) return;
 
@@ -1042,42 +1214,124 @@ class RenderEngine {
         }
 
         const insights = [];
+        const periodDays = range === 'week' ? 7 : range === 'month' ? 30 : range === 'quarter' ? 90 : 365;
 
-        // Total workload insight
+        // Calculate core metrics
         const totalHours = events.reduce((sum, e) => sum + ((e.end - e.start) / (1000 * 60 * 60)), 0);
-        const avgPerDay = totalHours / (range === 'week' ? 7 : 30);
+        const avgPerDay = totalHours / periodDays;
+        const totalAppointments = events.length;
+        const avgAppointmentsPerDay = totalAppointments / periodDays;
 
-        if (avgPerDay > 8) {
+        // Find busiest and lightest days
+        const dayWorkload = {};
+        events.forEach(event => {
+            const dayKey = new Date(event.start).toDateString();
+            const hours = (event.end - event.start) / (1000 * 60 * 60);
+            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + hours;
+        });
+        
+        const sortedDays = Object.entries(dayWorkload).sort((a, b) => b[1] - a[1]);
+        const busiestDay = sortedDays[0];
+        const lightestDay = sortedDays[sortedDays.length - 1];
+
+        // Find busiest time of day
+        const hourCounts = {};
+        events.forEach(event => {
+            const hour = new Date(event.start).getHours();
+            hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+        });
+        const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+
+        // Find top client
+        const clientCounts = {};
+        events.forEach(event => {
+            const title = event.title || '';
+            let clientName = title
+                .replace(/\([^)]*\)/g, '')
+                .replace(/\b(15|20|30|45|60)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i, '')
+                .replace(/\b(HS|Housesit|MG|M&G)\b(?:\s*[-–]?\s*(Start|1st|2nd|3rd|Last))?$/i, '')
+                .trim();
+            if (clientName.length >= 2 && !/^(off|lunch)/i.test(clientName)) {
+                clientCounts[clientName] = (clientCounts[clientName] || 0) + 1;
+            }
+        });
+        const topClient = Object.entries(clientCounts).sort((a, b) => b[1] - a[1])[0];
+
+        // Generate insights based on analysis
+        
+        // 1. Workload Assessment
+        const thresholds = state?.settings?.thresholds?.daily || { comfortable: 6, busy: 8, high: 10 };
+        if (avgPerDay > thresholds.high / periodDays * 7) {
             insights.push({
                 icon: '⚠️',
+                type: 'warning',
                 title: 'High Workload Alert',
-                description: 'You are averaging ' + Utils.formatHours(avgPerDay) + ' per day. Consider reducing your schedule.'
+                description: `You're averaging ${Utils.formatHours(avgPerDay)} per day. Consider declining new bookings or scheduling rest days.`
             });
-        } else if (avgPerDay < 4) {
+        } else if (avgPerDay < 2) {
             insights.push({
                 icon: '📈',
+                type: 'opportunity',
                 title: 'Capacity Available',
-                description: 'You are averaging ' + Utils.formatHours(avgPerDay) + ' per day. You have room for more appointments.'
+                description: `You're averaging only ${Utils.formatHours(avgPerDay)} per day. Great time to take on new clients!`
+            });
+        } else {
+            insights.push({
+                icon: '✅',
+                type: 'positive',
+                title: 'Balanced Workload',
+                description: `You're averaging ${Utils.formatHours(avgPerDay)} per day - a healthy balance.`
             });
         }
 
-        // Busiest day insight
-        const dayWorkload = {};
-        events.forEach(event => {
-            const day = new Date(event.start).toLocaleDateString('en-US', { weekday: 'long' });
-            dayWorkload[day] = (dayWorkload[day] || 0) + 1;
-        });
+        // 2. Peak Time Insight
+        if (peakHour) {
+            const hourLabel = peakHour[0] < 12 ? `${peakHour[0]}am` : peakHour[0] === 12 ? '12pm' : `${peakHour[0] - 12}pm`;
+            insights.push({
+                icon: '⏰',
+                type: 'info',
+                title: 'Peak Booking Time',
+                description: `Most of your appointments (${peakHour[1]}) start around ${hourLabel}. Consider this when scheduling.`
+            });
+        }
 
-        const busiestDay = Object.entries(dayWorkload).reduce((max, entry) => {
-            const day = entry[0];
-            const count = entry[1];
-            return count > max.count ? { day, count } : max;
-        }, { day: '', count: 0 });
+        // 3. Top Client Insight
+        if (topClient && topClient[1] > 2) {
+            const percentage = ((topClient[1] / totalAppointments) * 100).toFixed(0);
+            insights.push({
+                icon: '⭐',
+                type: 'info',
+                title: 'Top Client',
+                description: `${topClient[0]} accounts for ${percentage}% of your appointments (${topClient[1]} visits).`
+            });
+        }
+
+        // 4. Busiest Day Insight
+        if (busiestDay && busiestDay[1] > 4) {
+            const dayDate = new Date(busiestDay[0]);
+            const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+            insights.push({
+                icon: '🔥',
+                type: 'info',
+                title: 'Busiest Day',
+                description: `${dayName} was your busiest with ${Utils.formatHours(busiestDay[1])} of work.`
+            });
+        }
+
+        // 5. Appointment Frequency
+        if (avgAppointmentsPerDay > 0.5) {
+            insights.push({
+                icon: '📊',
+                type: 'info',
+                title: 'Booking Rate',
+                description: `You averaged ${avgAppointmentsPerDay.toFixed(1)} appointments per day (${totalAppointments} total).`
+            });
+        }
 
         // Render insights
         if (insights.length > 0) {
             container.innerHTML = insights.map(insight => `
-                <div class="insight-card">
+                <div class="insight-card ${insight.type || ''}">
                     <div class="insight-icon">${insight.icon}</div>
                     <div class="insight-content">
                         <div class="insight-title">${insight.title}</div>
@@ -1086,7 +1340,7 @@ class RenderEngine {
                 </div>
             `).join('');
         } else {
-            container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 24px;">No significant insights found.</p>';
+            container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 24px;">Keep booking appointments to see insights!</p>';
         }
     }
 
@@ -1128,18 +1382,26 @@ class RenderEngine {
     }
 
     /**
-     * Render comparison data for analytics stats
+     * Render comparison data for analytics stats - enhanced with percentages
      */
     renderAnalyticsComparison(comparison, range) {
         const rangeLabel = range === 'week' ? 'last week' : range === 'month' ? 'last month' : range === 'quarter' ? 'last quarter' : 'last year';
+
+        // Helper to format percentage change
+        const formatPercent = (percent) => {
+            if (Math.abs(percent) < 1) return '';
+            const sign = percent >= 0 ? '+' : '';
+            return ` (${sign}${Math.round(percent)}%)`;
+        };
 
         // Appointments comparison
         const apptEl = document.getElementById('analytics-total-appointments-comparison');
         if (apptEl) {
             const arrow = comparison.appointments.trend === 'positive' ? '↗️' : comparison.appointments.trend === 'negative' ? '↘️' : '→';
             const sign = comparison.appointments.diff >= 0 ? '+' : '';
+            const percentText = formatPercent(comparison.appointments.percent);
             apptEl.className = 'stat-comparison ' + comparison.appointments.trend;
-            apptEl.innerHTML = arrow + ' ' + sign + comparison.appointments.diff + ' vs ' + rangeLabel;
+            apptEl.innerHTML = `<span class="comparison-arrow">${arrow}</span> <span class="comparison-value">${sign}${comparison.appointments.diff}${percentText}</span> <span class="comparison-label">vs ${rangeLabel}</span>`;
         }
 
         // Hours comparison
@@ -1147,8 +1409,9 @@ class RenderEngine {
         if (hoursEl) {
             const arrow = comparison.hours.trend === 'positive' ? '↗️' : comparison.hours.trend === 'negative' ? '↘️' : '→';
             const sign = comparison.hours.diff >= 0 ? '+' : '';
+            const percentText = formatPercent(comparison.hours.percent);
             hoursEl.className = 'stat-comparison ' + comparison.hours.trend;
-            hoursEl.innerHTML = arrow + ' ' + sign + Utils.formatHours(Math.abs(comparison.hours.diff)) + ' vs ' + rangeLabel;
+            hoursEl.innerHTML = `<span class="comparison-arrow">${arrow}</span> <span class="comparison-value">${sign}${Utils.formatHours(Math.abs(comparison.hours.diff))}${percentText}</span> <span class="comparison-label">vs ${rangeLabel}</span>`;
         }
 
         // Avg daily comparison
@@ -1156,8 +1419,9 @@ class RenderEngine {
         if (avgEl) {
             const arrow = comparison.avgDaily.trend === 'positive' ? '↗️' : comparison.avgDaily.trend === 'negative' ? '↘️' : '→';
             const sign = comparison.avgDaily.diff >= 0 ? '+' : '';
+            const percentText = formatPercent(comparison.avgDaily.percent);
             avgEl.className = 'stat-comparison ' + comparison.avgDaily.trend;
-            avgEl.innerHTML = arrow + ' ' + sign + Utils.formatHours(Math.abs(comparison.avgDaily.diff)) + ' avg vs ' + rangeLabel;
+            avgEl.innerHTML = `<span class="comparison-arrow">${arrow}</span> <span class="comparison-value">${sign}${Utils.formatHours(Math.abs(comparison.avgDaily.diff))}${percentText}</span> <span class="comparison-label">vs ${rangeLabel}</span>`;
         }
     }
 
