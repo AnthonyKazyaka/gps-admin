@@ -734,8 +734,19 @@ class RenderEngine {
      * Render analytics overview cards
      */
     renderAnalyticsOverview(events, startDate, endDate, range) {
+        // Check if elements exist (analytics view might not be active)
+        const totalAppointmentsEl = document.getElementById('analytics-total-appointments');
+        const totalHoursEl = document.getElementById('analytics-total-hours');
+        const avgDailyEl = document.getElementById('analytics-avg-daily');
+        const busiestDayEl = document.getElementById('analytics-busiest-day');
+        
+        if (!totalAppointmentsEl || !totalHoursEl || !avgDailyEl || !busiestDayEl) {
+            // Elements don't exist, analytics view is not active
+            return;
+        }
+
         // Total appointments
-        document.getElementById('analytics-total-appointments').textContent = events.length;
+        totalAppointmentsEl.textContent = events.length;
 
         // Total hours
         const totalMinutes = events.reduce((sum, event) => {
@@ -746,12 +757,12 @@ class RenderEngine {
         }, 0);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = Math.round(totalMinutes % 60);
-        document.getElementById('analytics-total-hours').textContent = hours + 'h ' + minutes + 'm';
+        totalHoursEl.textContent = hours + 'h ' + minutes + 'm';
 
         // Average daily workload
         const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
         const avgDaily = totalMinutes / days / 60;
-        document.getElementById('analytics-avg-daily').textContent = Utils.formatHours(avgDaily);
+        avgDailyEl.textContent = Utils.formatHours(avgDaily);
 
         // Busiest day
         const dayWorkload = {};
@@ -773,7 +784,7 @@ class RenderEngine {
         const busiestDayText = busiestDate
             ? busiestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (' + Utils.formatHours(busiestDay.hours) + ')'
             : 'N/A';
-        document.getElementById('analytics-busiest-day').textContent = busiestDayText;
+        busiestDayEl.textContent = busiestDayText;
     }
 
     /**
@@ -1459,10 +1470,15 @@ class RenderEngine {
      * Clear analytics comparison data
      */
     clearAnalyticsComparison() {
-        document.getElementById('analytics-total-appointments-comparison').innerHTML = '';
-        document.getElementById('analytics-total-hours-comparison').innerHTML = '';
-        document.getElementById('analytics-avg-daily-comparison').innerHTML = '';
-        document.getElementById('analytics-busiest-day-comparison').innerHTML = '';
+        const totalAppointmentsComp = document.getElementById('analytics-total-appointments-comparison');
+        const totalHoursComp = document.getElementById('analytics-total-hours-comparison');
+        const avgDailyComp = document.getElementById('analytics-avg-daily-comparison');
+        const busiestDayComp = document.getElementById('analytics-busiest-day-comparison');
+        
+        if (totalAppointmentsComp) totalAppointmentsComp.innerHTML = '';
+        if (totalHoursComp) totalHoursComp.innerHTML = '';
+        if (avgDailyComp) avgDailyComp.innerHTML = '';
+        if (busiestDayComp) busiestDayComp.innerHTML = '';
     }
 
     /**

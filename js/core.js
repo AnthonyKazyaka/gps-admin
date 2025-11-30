@@ -47,7 +47,10 @@ class GPSAdminApp {
     init() {
         this.setupEventListeners();
         this.loadSettings();
-        this.switchView('dashboard');
+        
+        // Check hash and load appropriate view
+        const initialView = this.getViewFromHash() || 'dashboard';
+        this.switchView(initialView);
         
         // Hide loading screen
         const loadingScreen = document.getElementById('loading-screen');
@@ -66,6 +69,12 @@ class GPSAdminApp {
      * Setup event listeners
      */
     setupEventListeners() {
+        // Hash change listener for browser back/forward
+        window.addEventListener('hashchange', () => {
+            const view = this.getViewFromHash() || 'dashboard';
+            this.switchView(view, false); // false = don't update hash (already changed)
+        });
+
         // Navigation
         document.querySelectorAll('[data-view]').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -304,8 +313,28 @@ class GPSAdminApp {
      * Switch application view
      * @param {string} view - View name
      */
-    switchView(view) {
+    /**
+     * Get view name from URL hash
+     * @returns {string|null} View name or null
+     */
+    getViewFromHash() {
+        const hash = window.location.hash.slice(1); // Remove '#'
+        const validViews = ['dashboard', 'calendar', 'templates', 'analytics', 'settings'];
+        return validViews.includes(hash) ? hash : null;
+    }
+
+    /**
+     * Switch to a different view
+     * @param {string} view - View name
+     * @param {boolean} updateHash - Whether to update URL hash (default: true)
+     */
+    switchView(view, updateHash = true) {
         this.state.currentView = view;
+
+        // Update URL hash
+        if (updateHash && window.location.hash !== `#${view}`) {
+            window.location.hash = view;
+        }
 
         // Update navigation
         document.querySelectorAll('[data-view]').forEach(btn => {
