@@ -255,6 +255,34 @@ class WorkloadCalculator {
         const avgDailyDiff = currentAvgDaily - previousAvgDaily;
         const avgDailyPercent = previousAvgDaily > 0 ? (avgDailyDiff / previousAvgDaily * 100) : 0;
 
+        // Calculate busiest day for each period
+        const getBusiestDay = (events) => {
+            if (events.length === 0) return { day: null, hours: 0 };
+            
+            const dayWorkload = {};
+            events.forEach(event => {
+                const eventStart = new Date(event.start);
+                const eventEnd = new Date(event.end);
+                const dayKey = eventStart.toDateString();
+                const hours = (eventEnd - eventStart) / (1000 * 60 * 60);
+                dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + (isNaN(hours) ? 0 : hours);
+            });
+
+            const busiestEntry = Object.entries(dayWorkload).reduce((max, entry) => {
+                return entry[1] > max[1] ? entry : max;
+            }, ['', 0]);
+
+            return {
+                day: busiestEntry[0] ? new Date(busiestEntry[0]) : null,
+                hours: busiestEntry[1]
+            };
+        };
+
+        const currentBusiest = getBusiestDay(currentEvents);
+        const previousBusiest = getBusiestDay(previousEvents);
+        const busiestDiff = currentBusiest.hours - previousBusiest.hours;
+        const busiestPercent = previousBusiest.hours > 0 ? (busiestDiff / previousBusiest.hours * 100) : 0;
+
         return {
             appointments: {
                 current: currentAppointments,
@@ -276,6 +304,13 @@ class WorkloadCalculator {
                 diff: avgDailyDiff,
                 percent: avgDailyPercent,
                 trend: avgDailyDiff > 0.5 ? 'positive' : avgDailyDiff < -0.5 ? 'negative' : 'neutral'
+            },
+            busiestDay: {
+                current: currentBusiest,
+                previous: previousBusiest,
+                diff: busiestDiff,
+                percent: busiestPercent,
+                trend: busiestDiff > 0.5 ? 'positive' : busiestDiff < -0.5 ? 'negative' : 'neutral'
             }
         };
     }

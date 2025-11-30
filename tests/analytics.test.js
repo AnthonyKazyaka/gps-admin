@@ -122,6 +122,34 @@ describe('Analytics Calculations', () => {
         const avgDailyDiff = currentAvgDaily - previousAvgDaily;
         const avgDailyPercent = previousAvgDaily > 0 ? (avgDailyDiff / previousAvgDaily * 100) : 0;
 
+        // Calculate busiest day for each period
+        const getBusiestDay = (events) => {
+          if (events.length === 0) return { day: null, hours: 0 };
+          
+          const dayWorkload = {};
+          events.forEach(event => {
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            const dayKey = eventStart.toDateString();
+            const hours = (eventEnd - eventStart) / (1000 * 60 * 60);
+            dayWorkload[dayKey] = (dayWorkload[dayKey] || 0) + (isNaN(hours) ? 0 : hours);
+          });
+
+          const busiestEntry = Object.entries(dayWorkload).reduce((max, entry) => {
+            return entry[1] > max[1] ? entry : max;
+          }, ['', 0]);
+
+          return {
+            day: busiestEntry[0] ? new Date(busiestEntry[0]) : null,
+            hours: busiestEntry[1]
+          };
+        };
+
+        const currentBusiest = getBusiestDay(currentEvents);
+        const previousBusiest = getBusiestDay(previousEvents);
+        const busiestDiff = currentBusiest.hours - previousBusiest.hours;
+        const busiestPercent = previousBusiest.hours > 0 ? (busiestDiff / previousBusiest.hours * 100) : 0;
+
         return {
           appointments: {
             current: currentAppointments,
@@ -143,6 +171,13 @@ describe('Analytics Calculations', () => {
             diff: avgDailyDiff,
             percent: avgDailyPercent,
             trend: avgDailyDiff > 0.5 ? 'positive' : avgDailyDiff < -0.5 ? 'negative' : 'neutral'
+          },
+          busiestDay: {
+            current: currentBusiest,
+            previous: previousBusiest,
+            diff: busiestDiff,
+            percent: busiestPercent,
+            trend: busiestDiff > 0.5 ? 'positive' : busiestDiff < -0.5 ? 'negative' : 'neutral'
           }
         };
       },
@@ -373,6 +408,58 @@ describe('Analytics Calculations', () => {
 
       expect(comparison.appointments.current).toBe(0);
       expect(comparison.appointments.trend).toBe('negative');
+    });
+
+    test('should calculate busiest day correctly', () => {
+      // Current period: 2 hours on day 1, 5 hours on day 2
+      const currentEvents = [
+        { start: new Date('2024-01-01T10:00'), end: new Date('2024-01-01T12:00') }, // 2 hours on Jan 1
+        { start: new Date('2024-01-02T09:00'), end: new Date('2024-01-02T14:00') }, // 5 hours on Jan 2
+      ];
+      // Previous period: 3 hours on day 1
+      const previousEvents = [
+        { start: new Date('2023-12-01T10:00'), end: new Date('2023-12-01T13:00') }, // 3 hours
+      ];
+
+      const comparison = app.calculatePeriodComparison(currentEvents, previousEvents, 7, 7);
+
+      expect(comparison.busiestDay).toBeDefined();
+      expect(comparison.busiestDay.current.hours).toBe(5); // Busiest day had 5 hours
+      expect(comparison.busiestDay.previous.hours).toBe(3); // Previous busiest had 3 hours
+      expect(comparison.busiestDay.diff).toBe(2); // 5 - 3 = 2
+      expect(comparison.busiestDay.trend).toBe('positive');
+    });
+
+    test('should handle empty periods for busiest day', () => {
+      const currentEvents = [];
+      const previousEvents = [];
+
+      const comparison = app.calculatePeriodComparison(currentEvents, previousEvents, 7, 7);
+
+      expect(comparison.busiestDay).toBeDefined();
+      expect(comparison.busiestDay.current.hours).toBe(0);
+      expect(comparison.busiestDay.previous.hours).toBe(0);
+      expect(comparison.busiestDay.diff).toBe(0);
+      expect(comparison.busiestDay.trend).toBe('neutral');
+    });
+
+    test('should calculate busiest day with multiple events on same day', () => {
+      // Current period: 3 events on day 1 totaling 6 hours
+      const currentEvents = [
+        { start: new Date('2024-01-01T08:00'), end: new Date('2024-01-01T10:00') }, // 2 hours
+        { start: new Date('2024-01-01T11:00'), end: new Date('2024-01-01T13:00') }, // 2 hours
+        { start: new Date('2024-01-01T14:00'), end: new Date('2024-01-01T16:00') }, // 2 hours
+        { start: new Date('2024-01-02T10:00'), end: new Date('2024-01-02T11:00') }, // 1 hour on different day
+      ];
+      const previousEvents = [
+        { start: new Date('2023-12-01T10:00'), end: new Date('2023-12-01T14:00') }, // 4 hours
+      ];
+
+      const comparison = app.calculatePeriodComparison(currentEvents, previousEvents, 7, 7);
+
+      expect(comparison.busiestDay.current.hours).toBe(6); // Total hours on Jan 1
+      expect(comparison.busiestDay.previous.hours).toBe(4);
+      expect(comparison.busiestDay.diff).toBe(2);
     });
   });
 

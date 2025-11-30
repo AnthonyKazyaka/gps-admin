@@ -1423,6 +1423,16 @@ class RenderEngine {
             avgEl.className = 'stat-comparison ' + comparison.avgDaily.trend;
             avgEl.innerHTML = `<span class="comparison-arrow">${arrow}</span> <span class="comparison-value">${sign}${Utils.formatHours(Math.abs(comparison.avgDaily.diff))}${percentText}</span> <span class="comparison-label">vs ${rangeLabel}</span>`;
         }
+
+        // Busiest day comparison
+        const busiestEl = document.getElementById('analytics-busiest-day-comparison');
+        if (busiestEl && comparison.busiestDay) {
+            const arrow = comparison.busiestDay.trend === 'positive' ? '↗️' : comparison.busiestDay.trend === 'negative' ? '↘️' : '→';
+            const sign = comparison.busiestDay.diff >= 0 ? '+' : '';
+            const percentText = formatPercent(comparison.busiestDay.percent);
+            busiestEl.className = 'stat-comparison ' + comparison.busiestDay.trend;
+            busiestEl.innerHTML = `<span class="comparison-arrow">${arrow}</span> <span class="comparison-value">${sign}${Utils.formatHours(Math.abs(comparison.busiestDay.diff))}${percentText}</span> <span class="comparison-label">vs ${rangeLabel}</span>`;
+        }
     }
 
     /**
