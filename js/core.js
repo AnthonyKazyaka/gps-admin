@@ -272,6 +272,15 @@ class GPSAdminApp {
             });
         }
 
+        // Download events JSON button
+        const downloadEventsBtn = document.getElementById('download-events-btn');
+        if (downloadEventsBtn) {
+            downloadEventsBtn.addEventListener('click', () => {
+                console.log('💾 Download events JSON button clicked');
+                this.downloadEventsJSON();
+            });
+        }
+
         // Export event list button
         const exportEventListBtn = document.getElementById('export-event-list-btn');
         if (exportEventListBtn) {
@@ -1509,6 +1518,51 @@ class GPSAdminApp {
             await this.renderCurrentView();
             this.renderer.updateWorkloadIndicator(this.state);
             Utils.showToast('No calendars selected - events cleared', 'info');
+        }
+    }
+
+    /**
+     * Download events as JSON file for debugging
+     */
+    downloadEventsJSON() {
+        try {
+            // Get current events
+            const events = this.state.events || [];
+            
+            // Create JSON with metadata
+            const data = {
+                exportDate: new Date().toISOString(),
+                eventCount: events.length,
+                selectedCalendars: this.state.selectedCalendars || [],
+                events: events
+            };
+            
+            // Convert to JSON with pretty formatting
+            const jsonStr = JSON.stringify(data, null, 2);
+            
+            // Create blob and download
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Create download link
+            const a = document.createElement('a');
+            a.href = url;
+            const timestamp = new Date().toISOString().split('T')[0];
+            a.download = `calendar-events-${timestamp}.json`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            console.log(`📥 Downloaded ${events.length} events as JSON`);
+            Utils.showToast(`Downloaded ${events.length} events as JSON`, 'success');
+        } catch (error) {
+            console.error('❌ Error downloading events JSON:', error);
+            Utils.showToast('Error downloading events JSON', 'error');
         }
     }
 
