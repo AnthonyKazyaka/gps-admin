@@ -905,6 +905,13 @@ class GPSAdminApp {
     }
 
     /**
+     * Render analytics view
+     */
+    renderAnalytics() {
+        this.renderEngine.renderAnalytics(this.state, this.templatesManager);
+    }
+
+    /**
      * Render calendar selection in settings
      */
     renderCalendarSelection() {
