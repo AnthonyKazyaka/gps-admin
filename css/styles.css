@@ -31,9 +31,11 @@
     --success-500: #10B981;
     --success-600: #059669;
     --warning-50: #FFFBEB;
+    --warning-400: #FBBF24;
     --warning-500: #F59E0B;
     --warning-600: #D97706;
     --danger-50: #FEF2F2;
+    --danger-400: #F87171;
     --danger-500: #EF4444;
     --danger-600: #DC2626;
     --info-50: #EFF6FF;
@@ -1551,6 +1553,26 @@ label {
     z-index: 4;
 }
 
+.bar.high {
+    background: linear-gradient(to top, var(--warning-600), var(--warning-500));
+    z-index: 3;
+}
+
+.bar.high:hover {
+    background: linear-gradient(to top, var(--warning-700), var(--warning-600));
+    z-index: 4;
+}
+
+.bar.burnout {
+    background: linear-gradient(to top, var(--danger-500), var(--danger-400));
+    z-index: 3;
+}
+
+.bar.burnout:hover {
+    background: linear-gradient(to top, var(--danger-600), var(--danger-500));
+    z-index: 4;
+}
+
 .bar.overload {
     background: linear-gradient(to top, var(--danger-500), var(--danger-400));
     z-index: 3;
@@ -2249,6 +2271,14 @@ label {
     background: linear-gradient(to top, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02));
 }
 
+.threshold-zone.high {
+    background: linear-gradient(to top, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.06));
+}
+
+.threshold-zone.burnout {
+    background: linear-gradient(to top, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
+}
+
 .threshold-zone.overload {
     background: linear-gradient(to top, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
 }
@@ -2288,6 +2318,22 @@ label {
 
 .threshold-line.busy::after {
     color: var(--warning-600);
+}
+
+.threshold-line.high {
+    border-color: var(--warning-500);
+}
+
+.threshold-line.high::after {
+    color: var(--warning-700);
+}
+
+.threshold-line.burnout {
+    border-color: var(--danger-400);
+}
+
+.threshold-line.burnout::after {
+    color: var(--danger-600);
 }
 
 .threshold-line.overload {

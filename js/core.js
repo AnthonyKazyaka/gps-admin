@@ -384,37 +384,42 @@ class GPSAdminApp {
      */
     initMockData() {
         if (this.state.useMockData && this.state.events.length === 0) {
-            // Add some mock events
-            const today = new Date();
-            this.state.events = [
-                {
-                    id: Utils.generateId(),
-                    title: 'Fluffy - 30',
-                    start: Utils.createDateAtTime(today, 9, 0),
-                    end: Utils.createDateAtTime(today, 9, 30),
-                    location: '123 Main St',
-                    isAllDay: false,
-                    ignored: false
-                },
-                {
-                    id: Utils.generateId(),
-                    title: 'Max - 45',
-                    start: Utils.createDateAtTime(today, 11, 0),
-                    end: Utils.createDateAtTime(today, 11, 45),
-                    location: '456 Oak Ave',
-                    isAllDay: false,
-                    ignored: false
-                },
-                {
-                    id: Utils.generateId(),
-                    title: 'Bella - Housesit Start',
-                    start: Utils.createDateAtTime(today, 18, 0),
-                    end: Utils.createDateAtTime(Utils.addDays(today, 1), 18, 0),
-                    location: '789 Pine Rd',
-                    isAllDay: false,
-                    ignored: false
-                }
-            ];
+            // Use the MockDataGenerator for comprehensive test data
+            if (typeof MockDataGenerator !== 'undefined') {
+                this.state.events = MockDataGenerator.generateMockEvents();
+            } else {
+                // Fallback: Add some basic mock events
+                const today = new Date();
+                this.state.events = [
+                    {
+                        id: Utils.generateId(),
+                        title: 'Fluffy - 30',
+                        start: Utils.createDateAtTime(today, 9, 0),
+                        end: Utils.createDateAtTime(today, 9, 30),
+                        location: '123 Main St',
+                        isAllDay: false,
+                        ignored: false
+                    },
+                    {
+                        id: Utils.generateId(),
+                        title: 'Max - 45',
+                        start: Utils.createDateAtTime(today, 11, 0),
+                        end: Utils.createDateAtTime(today, 11, 45),
+                        location: '456 Oak Ave',
+                        isAllDay: false,
+                        ignored: false
+                    },
+                    {
+                        id: Utils.generateId(),
+                        title: 'Bella - Housesit Start',
+                        start: Utils.createDateAtTime(today, 18, 0),
+                        end: Utils.createDateAtTime(Utils.addDays(today, 1), 18, 0),
+                        location: '789 Pine Rd',
+                        isAllDay: false,
+                        ignored: false
+                    }
+                ];
+            }
         }
     }
 

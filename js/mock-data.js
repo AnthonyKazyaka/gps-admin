@@ -12,6 +12,593 @@ class MockDataGenerator {
         const today = new Date();
         const events = [];
 
+        // ===== HISTORICAL DATA FOR CURRENT MONTH =====
+        // This ensures the Analytics chart has data to display
+        
+        // Day -25 (early in month) - Light day
+        events.push(
+            {
+                id: 'h1',
+                title: 'Buddy 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 25, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 25, 9, 30),
+                location: '111 Ash Avenue',
+                client: 'Thompson Family',
+                notes: 'Morning check-in'
+            },
+            {
+                id: 'h2',
+                title: 'Shadow 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 25, 14, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 25, 14, 45),
+                location: '222 Walnut Lane',
+                client: 'Miller Family',
+                notes: 'Afternoon visit'
+            }
+        );
+
+        // Day -24 - Moderate day
+        events.push(
+            {
+                id: 'h3',
+                title: 'Luna 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 8, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 8, 30),
+                location: '789 Maple Drive',
+                client: 'Davis Family',
+                notes: 'Medication'
+            },
+            {
+                id: 'h4',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 11, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 12, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family',
+                notes: 'Park walk'
+            },
+            {
+                id: 'h5',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 17, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 24, 17, 30),
+                location: '321 Pine Road',
+                client: 'Wilson Family',
+                notes: 'Evening care'
+            }
+        );
+
+        // Day -22 - BUSY day (6+ hours)
+        events.push(
+            {
+                id: 'h6',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 7, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 7, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h7',
+                title: 'Charlie 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 8, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 9, 15),
+                location: '555 Cedar Lane',
+                client: 'Brown Family'
+            },
+            {
+                id: 'h8',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 10, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 11, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h9',
+                title: 'Luna 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 12, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 12, 45),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h10',
+                title: 'Daisy 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 14, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 14, 30),
+                location: '888 Birch Court',
+                client: 'Taylor Family'
+            },
+            {
+                id: 'h11',
+                title: 'Oscar 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 15, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 16, 15),
+                location: '999 Willow Way',
+                client: 'Anderson Family'
+            },
+            {
+                id: 'h12',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 17, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 18, 0),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            },
+            {
+                id: 'h13',
+                title: 'Buddy 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 19, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 22, 19, 30),
+                location: '111 Ash Avenue',
+                client: 'Thompson Family'
+            }
+        );
+
+        // Day -20 - OVERLOAD day (8+ hours)
+        events.push(
+            {
+                id: 'h14',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 6, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 7, 0),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h15',
+                title: 'Luna 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 7, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 8, 15),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h16',
+                title: 'Charlie 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 9, 45),
+                location: '555 Cedar Lane',
+                client: 'Brown Family'
+            },
+            {
+                id: 'h17',
+                title: 'Max & Cooper 90',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 10, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 12, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h18',
+                title: 'Jasper 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 13, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 13, 30),
+                location: '234 Spruce St',
+                client: 'Garcia Family'
+            },
+            {
+                id: 'h19',
+                title: 'Daisy 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 14, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 15, 15),
+                location: '888 Birch Court',
+                client: 'Taylor Family'
+            },
+            {
+                id: 'h20',
+                title: 'Oscar 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 16, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 16, 45),
+                location: '999 Willow Way',
+                client: 'Anderson Family'
+            },
+            {
+                id: 'h21',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 17, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 18, 0),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            },
+            {
+                id: 'h22',
+                title: 'Buddy 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 18, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 19, 15),
+                location: '111 Ash Avenue',
+                client: 'Thompson Family'
+            },
+            {
+                id: 'h23',
+                title: 'Shadow 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 20, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20, 20, 30),
+                location: '222 Walnut Lane',
+                client: 'Miller Family'
+            }
+        );
+
+        // Day -18 - Moderate day
+        events.push(
+            {
+                id: 'h24',
+                title: 'Luna 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 8, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 8, 30),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h25',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 12, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 12, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h26',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 15, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 18, 16, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            }
+        );
+
+        // Day -15 - EXTREME OVERLOAD (10+ hours - burnout!)
+        events.push(
+            {
+                id: 'h27',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 6, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 6, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h28',
+                title: 'Luna 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 7, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 7, 45),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h29',
+                title: 'Charlie 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 8, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 9, 15),
+                location: '555 Cedar Lane',
+                client: 'Brown Family'
+            },
+            {
+                id: 'h30',
+                title: 'Max & Cooper 90',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 10, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 11, 30),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h31',
+                title: 'Jasper 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 12, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 12, 45),
+                location: '234 Spruce St',
+                client: 'Garcia Family'
+            },
+            {
+                id: 'h32',
+                title: 'Daisy 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 13, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 14, 15),
+                location: '888 Birch Court',
+                client: 'Taylor Family'
+            },
+            {
+                id: 'h33',
+                title: 'Oscar 60',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 15, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 16, 0),
+                location: '999 Willow Way',
+                client: 'Anderson Family'
+            },
+            {
+                id: 'h34',
+                title: 'Milo 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 16, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 17, 15),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            },
+            {
+                id: 'h35',
+                title: 'Buddy 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 18, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 18, 45),
+                location: '111 Ash Avenue',
+                client: 'Thompson Family'
+            },
+            {
+                id: 'h36',
+                title: 'Shadow 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 19, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 20, 15),
+                location: '222 Walnut Lane',
+                client: 'Miller Family'
+            },
+            {
+                id: 'h37',
+                title: 'Bella 30 (late)',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 21, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 15, 21, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            }
+        );
+
+        // Day -12 - Light day
+        events.push(
+            {
+                id: 'h38',
+                title: 'Luna 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 12, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 12, 9, 30),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h39',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 12, 17, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 12, 17, 30),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            }
+        );
+
+        // Day -10 - Moderate day
+        events.push(
+            {
+                id: 'h40',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 8, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 8, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h41',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 11, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 12, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h42',
+                title: 'Luna 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 13, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 13, 30),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h43',
+                title: 'Daisy 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 17, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10, 17, 30),
+                location: '888 Birch Court',
+                client: 'Taylor Family'
+            }
+        );
+
+        // Day -8 - Busy day
+        events.push(
+            {
+                id: 'h44',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 7, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 7, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h45',
+                title: 'Charlie 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 9, 45),
+                location: '555 Cedar Lane',
+                client: 'Brown Family'
+            },
+            {
+                id: 'h46',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 11, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 12, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h47',
+                title: 'Luna 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 13, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 13, 45),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h48',
+                title: 'Oscar 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 15, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 15, 45),
+                location: '999 Willow Way',
+                client: 'Anderson Family'
+            },
+            {
+                id: 'h49',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 17, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 8, 18, 0),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            }
+        );
+
+        // Day -5 - Moderate day
+        events.push(
+            {
+                id: 'h50',
+                title: 'Luna 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 8, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 8, 30),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h51',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 12, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 12, 30),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h52',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 15, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5, 16, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            }
+        );
+
+        // Day -3 - Light day
+        events.push(
+            {
+                id: 'h53',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 9, 30),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            },
+            {
+                id: 'h54',
+                title: 'Daisy 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 17, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 17, 30),
+                location: '888 Birch Court',
+                client: 'Taylor Family'
+            }
+        );
+
+        // Day -1 (Yesterday) - Busy day
+        events.push(
+            {
+                id: 'h55',
+                title: 'Bella 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 7, 30),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 8, 0),
+                location: '123 Oak Street',
+                client: 'Johnson Family'
+            },
+            {
+                id: 'h56',
+                title: 'Luna 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 9, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 9, 45),
+                location: '789 Maple Drive',
+                client: 'Davis Family'
+            },
+            {
+                id: 'h57',
+                title: 'Max & Cooper 60',
+                type: 'walk',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 11, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12, 0),
+                location: '456 Elm Avenue',
+                client: 'Smith Family'
+            },
+            {
+                id: 'h58',
+                title: 'Charlie 45',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 14, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 14, 45),
+                location: '555 Cedar Lane',
+                client: 'Brown Family'
+            },
+            {
+                id: 'h59',
+                title: 'Milo 30',
+                type: 'dropin',
+                start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 17, 0),
+                end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 17, 30),
+                location: '321 Pine Road',
+                client: 'Wilson Family'
+            }
+        );
+
         // ===== WEEK 1: TODAY =====
         // Today - Moderate workload
         events.push(

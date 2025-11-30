@@ -872,13 +872,13 @@ class RenderEngine {
     renderBarChartWithThresholds(container, data, settings, isDaily = true) {
         // Use daily or weekly thresholds based on data grouping
         const thresholds = isDaily ? settings.thresholds.daily : settings.thresholds.weekly;
-        // Use a reasonable max that shows thresholds well, at minimum show up to the overload threshold
-        const minDisplayMax = thresholds.high + 2; // At least show a bit above overload threshold
+        // Use a reasonable max that shows thresholds well, at minimum show up to the burnout threshold
+        const minDisplayMax = thresholds.burnout + 2; // At least show a bit above burnout threshold
         const dataMax = Math.max(...data.map(d => d.value), 0);
         // Adjust display cap based on daily (12h) or weekly (70h) view
         const displayCap = isDaily ? 12 : 70;
         // For the scale, we want to show up to either the data max OR the display cap, whichever is less,
-        // but at least up to the high threshold line
+        // but at least up to the burnout threshold line
         const maxValue = Math.max(minDisplayMax, dataMax > displayCap ? displayCap : dataMax);
 
         // Calculate average
@@ -891,19 +891,22 @@ class RenderEngine {
         // Calculate threshold positions (as percentage from bottom)
         const comfortablePos = (thresholds.comfortable / maxValue * 100);
         const busyPos = (thresholds.busy / maxValue * 100);
-        const burnoutPos = (thresholds.high / maxValue * 100);
+        const highPos = (thresholds.high / maxValue * 100);
+        const burnoutPos = (thresholds.burnout / maxValue * 100);
 
         const html = '<div class="chart-with-thresholds">' +
-            // Background zones for visual clarity
+            // Background zones for visual clarity (4 zones)
             '<div class="threshold-zone comfortable" style="position: absolute; bottom: 0; left: 0; right: 0; height: ' + comfortablePos + '%;"></div>' +
             '<div class="threshold-zone busy" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0; height: ' + (busyPos - comfortablePos) + '%;"></div>' +
-            '<div class="threshold-zone overload" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0; height: ' + (100 - busyPos) + '%;"></div>' +
+            '<div class="threshold-zone high" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0; height: ' + (highPos - busyPos) + '%;"></div>' +
+            '<div class="threshold-zone burnout" style="position: absolute; bottom: ' + highPos + '%; left: 0; right: 0; height: ' + (100 - highPos) + '%;"></div>' +
             // Average line (rendered before threshold lines so it appears below them visually)
             (avgValue > 0 ? '<div class="average-line" style="position: absolute; bottom: ' + avgPos + '%; left: 0; right: 0;" data-label="' + Utils.formatHours(avgValue) + ' avg"></div>' : '') +
-            // Threshold lines
+            // Threshold lines (4 lines)
             '<div class="threshold-line comfortable" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0;" data-label="' + thresholds.comfortable + 'h comfortable"></div>' +
             '<div class="threshold-line busy" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0;" data-label="' + thresholds.busy + 'h busy"></div>' +
-            '<div class="threshold-line overload" style="position: absolute; bottom: ' + burnoutPos + '%; left: 0; right: 0;" data-label="' + thresholds.high + 'h overload"></div>' +
+            '<div class="threshold-line high" style="position: absolute; bottom: ' + highPos + '%; left: 0; right: 0;" data-label="' + thresholds.high + 'h high"></div>' +
+            '<div class="threshold-line burnout" style="position: absolute; bottom: ' + burnoutPos + '%; left: 0; right: 0;" data-label="' + thresholds.burnout + 'h burnout"></div>' +
             // Bar chart - using pixel heights since percentage heights don't work well in flex columns
             '<div class="bar-chart" style="position: absolute; bottom: 16px; left: 0; right: 0; height: 200px;">' + data.map(item => {
                 const displayValue = Math.min(item.value, displayCap);
@@ -913,10 +916,12 @@ class RenderEngine {
                 const barHeight = Math.max(item.value > 0 ? 2 : 0, (displayValue / maxValue) * 180);
                 const valueText = item.value < 1 ? item.value.toFixed(1) : Math.round(item.value);
                 
-                // Determine bar status based on thresholds
+                // Determine bar status based on thresholds (4 levels + overflow)
                 let barStatus = 'comfortable';
-                if (item.value >= thresholds.high || isOverflow) {
-                    barStatus = 'overload';
+                if (item.value >= thresholds.burnout || isOverflow) {
+                    barStatus = 'burnout';
+                } else if (item.value >= thresholds.high) {
+                    barStatus = 'high';
                 } else if (item.value >= thresholds.busy) {
                     barStatus = 'busy';
                 } else if (item.value >= thresholds.comfortable) {
