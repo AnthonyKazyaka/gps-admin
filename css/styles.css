@@ -1485,6 +1485,7 @@ label {
 .chart-container {
     min-height: 250px;
     position: relative;
+    overflow: visible;
 }
 
 /* Bar Chart Styles */
@@ -1494,6 +1495,8 @@ label {
     justify-content: space-around;
     gap: 2px;
     z-index: 2;
+    overflow: visible;
+    height: 100%;
 }
 
 .bar-chart-item {
@@ -1501,7 +1504,7 @@ label {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
     min-width: 0; /* Allow flex items to shrink below content size */
     max-width: 24px; /* Limit max width for many items */
 }
@@ -1540,23 +1543,28 @@ label {
 
 .bar.busy {
     background: linear-gradient(to top, var(--warning-500), var(--warning-400));
+    z-index: 2;
 }
 
 .bar.busy:hover {
     background: linear-gradient(to top, var(--warning-600), var(--warning-500));
+    z-index: 4;
 }
 
 .bar.overload {
     background: linear-gradient(to top, var(--danger-500), var(--danger-400));
+    z-index: 3;
 }
 
 .bar.overload:hover {
     background: linear-gradient(to top, var(--danger-600), var(--danger-500));
+    z-index: 4;
 }
 
 .bar.overflow {
-    background: linear-gradient(to top, var(--red-600), var(--red-500));
+    background: linear-gradient(to top, var(--danger-600), var(--danger-500));
     position: relative;
+    z-index: 3;
 }
 
 .bar.overflow::after {
@@ -1590,6 +1598,8 @@ label {
     overflow: hidden;
     text-overflow: ellipsis;
     min-height: 14px; /* Reserve space even for empty labels */
+    margin-top: 4px;
+    flex-shrink: 0;
 }
 
 /* Donut Chart Styles */
@@ -2221,6 +2231,7 @@ label {
     position: relative;
     height: 100%;
     min-height: 250px;
+    overflow: visible;
 }
 
 /* Background zones for threshold visualization */

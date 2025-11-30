@@ -796,18 +796,22 @@ class RenderEngine {
         const dataPoints = [];
 
         if (groupByDay) {
-            // Daily grouping
+            // Daily grouping - use calculator for consistent metrics
             let currentDate = new Date(startDate);
             let dayIndex = 0;
             while (currentDate <= endDate) {
-                const dayKey = currentDate.toDateString();
-                const dayEvents = events.filter(e => new Date(e.start).toDateString() === dayKey);
-                const hours = dayEvents.reduce((sum, e) => {
-                    const start = new Date(e.start);
-                    const end = new Date(e.end);
-                    const diff = (end - start) / (1000 * 60 * 60);
-                    return sum + (isNaN(diff) ? 0 : diff);
-                }, 0);
+                const dateKey = new Date(currentDate);
+                dateKey.setHours(0, 0, 0, 0);
+                
+                // Get events for this day using the same method as calendar
+                const dayEvents = this.eventProcessor.getEventsForDate(events, dateKey);
+                
+                // Use calculator for consistent workload metrics
+                const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, dateKey, {
+                    includeTravel: settings.includeTravelTime
+                });
+                
+                const hours = metrics.totalHours;
 
                 // For month view, only show labels every 5 days to reduce crowding
                 const showLabel = range === 'week' || (dayIndex % 5 === 0);
@@ -827,24 +831,25 @@ class RenderEngine {
             let weekStart = new Date(startDate);
             let weekNum = 1;
             while (weekStart <= endDate) {
-                const weekEnd = new Date(weekStart);
-                weekEnd.setDate(weekStart.getDate() + 6);
-
-                const weekEvents = events.filter(e => {
-                    const eventDate = new Date(e.start);
-                    return eventDate >= weekStart && eventDate <= weekEnd;
-                });
-
-                const hours = weekEvents.reduce((sum, e) => {
-                    const start = new Date(e.start);
-                    const end = new Date(e.end);
-                    const diff = (end - start) / (1000 * 60 * 60);
-                    return sum + (isNaN(diff) ? 0 : diff);
-                }, 0);
+                // Calculate total hours for the week using calculator
+                let weekHours = 0;
+                for (let i = 0; i < 7; i++) {
+                    const dayDate = new Date(weekStart);
+                    dayDate.setDate(weekStart.getDate() + i);
+                    dayDate.setHours(0, 0, 0, 0);
+                    
+                    if (dayDate > endDate) break;
+                    
+                    const dayEvents = this.eventProcessor.getEventsForDate(events, dayDate);
+                    const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, dayDate, {
+                        includeTravel: settings.includeTravelTime
+                    });
+                    weekHours += metrics.totalHours;
+                }
 
                 dataPoints.push({
                     label: 'Week ' + weekNum,
-                    value: hours,
+                    value: weekHours,
                     shortLabel: 'W' + weekNum
                 });
 
@@ -853,20 +858,28 @@ class RenderEngine {
             }
         }
 
-        // Render bar chart with thresholds
-        this.renderBarChartWithThresholds(container, dataPoints, settings);
+        // Render bar chart with thresholds, passing whether data is daily or weekly
+        this.renderBarChartWithThresholds(container, dataPoints, settings, groupByDay);
     }
 
     /**
      * Render bar chart with threshold lines and average indicator
+     * @param {HTMLElement} container - Container element for the chart
+     * @param {Array} data - Data points to display
+     * @param {Object} settings - Settings object containing thresholds
+     * @param {boolean} isDaily - Whether data is grouped by day (true) or week (false)
      */
-    renderBarChartWithThresholds(container, data, settings) {
-        const thresholds = settings.thresholds.daily;
+    renderBarChartWithThresholds(container, data, settings, isDaily = true) {
+        // Use daily or weekly thresholds based on data grouping
+        const thresholds = isDaily ? settings.thresholds.daily : settings.thresholds.weekly;
         // Use a reasonable max that shows thresholds well, at minimum show up to the overload threshold
         const minDisplayMax = thresholds.high + 2; // At least show a bit above overload threshold
-        const dataMax = Math.max(...data.map(d => d.value));
-        const displayCap = 12; // Cap at 12h for daily view to keep thresholds visible
-        const maxValue = Math.max(minDisplayMax, Math.min(dataMax, displayCap));
+        const dataMax = Math.max(...data.map(d => d.value), 0);
+        // Adjust display cap based on daily (12h) or weekly (70h) view
+        const displayCap = isDaily ? 12 : 70;
+        // For the scale, we want to show up to either the data max OR the display cap, whichever is less,
+        // but at least up to the high threshold line
+        const maxValue = Math.max(minDisplayMax, dataMax > displayCap ? displayCap : dataMax);
 
         // Calculate average
         const nonZeroValues = data.filter(d => d.value > 0);
@@ -891,11 +904,13 @@ class RenderEngine {
             '<div class="threshold-line comfortable" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0;" data-label="' + thresholds.comfortable + 'h comfortable"></div>' +
             '<div class="threshold-line busy" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0;" data-label="' + thresholds.busy + 'h busy"></div>' +
             '<div class="threshold-line overload" style="position: absolute; bottom: ' + burnoutPos + '%; left: 0; right: 0;" data-label="' + thresholds.high + 'h overload"></div>' +
-            // Bar chart
+            // Bar chart - using pixel heights since percentage heights don't work well in flex columns
             '<div class="bar-chart" style="position: absolute; bottom: 16px; left: 0; right: 0; height: 200px;">' + data.map(item => {
                 const displayValue = Math.min(item.value, displayCap);
                 const isOverflow = item.value > displayCap;
                 const heightPercent = (displayValue / maxValue * 100);
+                // Calculate pixel height based on 180px available (200px - 20px for labels)
+                const barHeight = Math.max(item.value > 0 ? 2 : 0, (displayValue / maxValue) * 180);
                 const valueText = item.value < 1 ? item.value.toFixed(1) : Math.round(item.value);
                 
                 // Determine bar status based on thresholds
@@ -909,7 +924,7 @@ class RenderEngine {
                 }
                 
                 return '<div class="bar-chart-item">' +
-                    '<div class="bar animated ' + barStatus + (isOverflow ? ' overflow' : '') + '" style="height: ' + heightPercent + '%;" title="' + item.label + ': ' + Utils.formatHours(item.value) + '">' +
+                    '<div class="bar animated ' + barStatus + (isOverflow ? ' overflow' : '') + '" style="height: ' + barHeight + 'px;" title="' + item.label + ': ' + Utils.formatHours(item.value) + '">' +
                     (item.value > 0 ? '<div class="bar-value">' + valueText + (isOverflow ? '+' : '') + '</div>' : '') +
                     '</div>' +
                     '<div class="bar-label">' + (item.shortLabel !== undefined ? item.shortLabel : item.label) + '</div>' +
