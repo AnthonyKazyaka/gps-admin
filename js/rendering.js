@@ -603,7 +603,7 @@ class RenderEngine {
 
         // Apply work events filter if enabled
         if (workOnlyMode) {
-            events = events.filter(event => this.eventProcessor.isWorkEvent(event.title));
+            events = events.filter(event => event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title));
         }
 
         if (events.length === 0) {
@@ -626,7 +626,7 @@ class RenderEngine {
 
             // Apply work events filter to previous period if enabled
             if (workOnlyMode) {
-                prevEvents = prevEvents.filter(event => this.eventProcessor.isWorkEvent(event.title));
+                prevEvents = prevEvents.filter(event => event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title));
             }
 
             const currentDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
