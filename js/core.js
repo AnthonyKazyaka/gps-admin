@@ -222,6 +222,30 @@ class GPSAdminApp {
         // Add event listeners to all threshold inputs to update preview
         this.setupThresholdPreviewListeners();
 
+        // Analytics time range selector
+        const analyticsRange = document.getElementById('analytics-range');
+        if (analyticsRange) {
+            analyticsRange.addEventListener('change', () => {
+                this.renderAnalytics();
+            });
+        }
+
+        // Analytics comparison toggle
+        const analyticsCompareToggle = document.getElementById('analytics-compare-toggle');
+        if (analyticsCompareToggle) {
+            analyticsCompareToggle.addEventListener('change', () => {
+                this.renderAnalytics();
+            });
+        }
+
+        // Analytics work events filter toggle
+        const analyticsWorkOnlyToggle = document.getElementById('analytics-work-only-toggle');
+        if (analyticsWorkOnlyToggle) {
+            analyticsWorkOnlyToggle.addEventListener('change', () => {
+                this.renderAnalytics();
+            });
+        }
+
         // View in List button (from day details modal)
         const viewInListBtn = document.getElementById('view-in-list-btn');
         if (viewInListBtn) {
