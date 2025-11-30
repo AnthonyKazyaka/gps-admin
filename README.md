@@ -2,6 +2,8 @@
 
 A smart calendar management and workload analysis tool for pet sitting businesses.
 
+Live site: https://anthonykazyaka.github.io/gps-admin/
+
 ## Overview
 
 GPS Admin helps pet sitting professionals optimize their scheduling by:
