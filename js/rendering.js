@@ -1860,6 +1860,11 @@ class RenderEngine {
         if (monthlyBusy) monthlyBusy.value = thresholds.monthly.busy;
         if (monthlyOver) monthlyOver.value = thresholds.monthly.high;
         if (monthlyBurn) monthlyBurn.value = thresholds.monthly.burnout;
+
+        // Update preview boxes to match loaded values
+        if (window.gpsApp && typeof window.gpsApp.updateThresholdPreviews === 'function') {
+            window.gpsApp.updateThresholdPreviews();
+        }
     }
 
     /**

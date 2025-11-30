@@ -219,6 +219,9 @@ class GPSAdminApp {
             });
         }
 
+        // Add event listeners to all threshold inputs to update preview
+        this.setupThresholdPreviewListeners();
+
         // View in List button (from day details modal)
         const viewInListBtn = document.getElementById('view-in-list-btn');
         if (viewInListBtn) {
@@ -1301,6 +1304,87 @@ class GPSAdminApp {
         
         Utils.showToast('Workload settings saved successfully', 'success');
         console.log('✅ Workload thresholds saved');
+    }
+
+    /**
+     * Setup event listeners for threshold inputs to update preview in real-time
+     */
+    setupThresholdPreviewListeners() {
+        // Get all threshold input fields
+        const thresholdInputIds = [
+            'threshold-daily-comfortable', 'threshold-daily-busy', 'threshold-daily-overload',
+            'threshold-weekly-comfortable', 'threshold-weekly-busy', 'threshold-weekly-overload',
+            'threshold-monthly-comfortable', 'threshold-monthly-busy', 'threshold-monthly-overload'
+        ];
+
+        // Add input event listener to each field
+        thresholdInputIds.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('input', () => {
+                    this.updateThresholdPreviews();
+                });
+            }
+        });
+
+        // Initial preview update
+        this.updateThresholdPreviews();
+    }
+
+    /**
+     * Update the threshold preview boxes with current input values
+     */
+    updateThresholdPreviews() {
+        // Daily thresholds
+        const dailyComf = parseFloat(document.getElementById('threshold-daily-comfortable')?.value) || 0;
+        const dailyBusy = parseFloat(document.getElementById('threshold-daily-busy')?.value) || 0;
+        const dailyHigh = parseFloat(document.getElementById('threshold-daily-overload')?.value) || 0;
+
+        // Update daily preview
+        this.updatePreviewElement('preview-daily-comfortable', dailyComf);
+        this.updatePreviewElement('preview-daily-busy-start', dailyComf);
+        this.updatePreviewElement('preview-daily-busy', dailyBusy);
+        this.updatePreviewElement('preview-daily-high-start', dailyBusy);
+        this.updatePreviewElement('preview-daily-high', dailyHigh);
+        this.updatePreviewElement('preview-daily-burnout-start', dailyHigh);
+
+        // Weekly thresholds
+        const weeklyComf = parseFloat(document.getElementById('threshold-weekly-comfortable')?.value) || 0;
+        const weeklyBusy = parseFloat(document.getElementById('threshold-weekly-busy')?.value) || 0;
+        const weeklyHigh = parseFloat(document.getElementById('threshold-weekly-overload')?.value) || 0;
+
+        // Update weekly preview
+        this.updatePreviewElement('preview-weekly-comfortable', weeklyComf);
+        this.updatePreviewElement('preview-weekly-busy-start', weeklyComf);
+        this.updatePreviewElement('preview-weekly-busy', weeklyBusy);
+        this.updatePreviewElement('preview-weekly-high-start', weeklyBusy);
+        this.updatePreviewElement('preview-weekly-high', weeklyHigh);
+        this.updatePreviewElement('preview-weekly-burnout-start', weeklyHigh);
+
+        // Monthly thresholds
+        const monthlyComf = parseFloat(document.getElementById('threshold-monthly-comfortable')?.value) || 0;
+        const monthlyBusy = parseFloat(document.getElementById('threshold-monthly-busy')?.value) || 0;
+        const monthlyHigh = parseFloat(document.getElementById('threshold-monthly-overload')?.value) || 0;
+
+        // Update monthly preview
+        this.updatePreviewElement('preview-monthly-comfortable', monthlyComf);
+        this.updatePreviewElement('preview-monthly-busy-start', monthlyComf);
+        this.updatePreviewElement('preview-monthly-busy', monthlyBusy);
+        this.updatePreviewElement('preview-monthly-high-start', monthlyBusy);
+        this.updatePreviewElement('preview-monthly-high', monthlyHigh);
+        this.updatePreviewElement('preview-monthly-burnout-start', monthlyHigh);
+    }
+
+    /**
+     * Update a single preview element with a value
+     * @param {string} elementId - ID of the element to update
+     * @param {number} value - Value to display
+     */
+    updatePreviewElement(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = value;
+        }
     }
 
     /**
