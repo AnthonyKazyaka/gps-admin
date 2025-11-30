@@ -594,6 +594,14 @@ class RenderEngine {
         const startDate = result.startDate;
         const endDate = result.endDate;
 
+        console.log('📊 Analytics Filtering:', {
+            range,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            totalEvents: state.events.length,
+            workOnlyMode
+        });
+
         // Filter events within date range
         let events = state.events.filter(event => {
             if (event.ignored || event.isAllDay) return false;
@@ -601,16 +609,32 @@ class RenderEngine {
             return eventDate >= startDate && eventDate <= endDate;
         });
 
+        console.log('📅 After date range filter:', events.length, 'events');
+
         // Apply work events filter if enabled
         if (workOnlyMode) {
+            const beforeWorkFilter = events.length;
             events = events.filter(event => event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title));
+            console.log('💼 After work filter:', events.length, 'events (filtered out:', beforeWorkFilter - events.length, ')');
+            
+            // Debug: Show sample of filtered events
+            if (events.length > 0) {
+                console.log('Sample work events:', events.slice(0, 3).map(e => ({
+                    title: e.title,
+                    start: e.start,
+                    isWorkEvent: e.isWorkEvent
+                })));
+            }
         }
 
         if (events.length === 0) {
+            console.warn('⚠️ No events to display after filtering - showing empty state');
             this.renderAnalyticsEmpty();
             this.clearAnalyticsComparison();
             return;
         }
+
+        console.log('✅ Proceeding to render', events.length, 'events');
 
         // Calculate overview stats
         this.renderAnalyticsOverview(events, startDate, endDate, range);
@@ -735,14 +759,38 @@ class RenderEngine {
      */
     renderAnalyticsOverview(events, startDate, endDate, range) {
         // Check if elements exist (analytics view might not be active)
-        const totalAppointmentsEl = document.getElementById('analytics-total-appointments');
-        const totalHoursEl = document.getElementById('analytics-total-hours');
-        const avgDailyEl = document.getElementById('analytics-avg-daily');
-        const busiestDayEl = document.getElementById('analytics-busiest-day');
+        let totalAppointmentsEl = document.getElementById('analytics-total-appointments');
+        let totalHoursEl = document.getElementById('analytics-total-hours');
+        let avgDailyEl = document.getElementById('analytics-avg-daily');
+        let busiestDayEl = document.getElementById('analytics-busiest-day');
         
+        // If elements don't exist, check if we need to restore the structure
         if (!totalAppointmentsEl || !totalHoursEl || !avgDailyEl || !busiestDayEl) {
-            // Elements don't exist, analytics view is not active
-            return;
+            const analyticsContent = document.getElementById('analytics-content');
+            if (!analyticsContent) {
+                // Analytics view is not active
+                return;
+            }
+            
+            // Check if empty state is showing - if so, restore structure
+            if (analyticsContent.querySelector('.analytics-empty')) {
+                console.log('🔄 Restoring analytics structure after empty state');
+                this.restoreAnalyticsStructure();
+                
+                // Re-query elements after restoring
+                totalAppointmentsEl = document.getElementById('analytics-total-appointments');
+                totalHoursEl = document.getElementById('analytics-total-hours');
+                avgDailyEl = document.getElementById('analytics-avg-daily');
+                busiestDayEl = document.getElementById('analytics-busiest-day');
+                
+                if (!totalAppointmentsEl) {
+                    console.error('❌ Failed to restore analytics structure');
+                    return;
+                }
+            } else {
+                // Elements don't exist and not empty state - view not active
+                return;
+            }
         }
 
         // Total appointments
@@ -793,6 +841,85 @@ class RenderEngine {
     renderAnalyticsEmpty() {
         const content = document.getElementById('analytics-content');
         content.innerHTML = '<div class="analytics-empty"><div class="analytics-empty-icon">📊</div><h3>No Data Available</h3><p>No appointments found for the selected time period.</p></div>';
+    }
+
+    /**
+     * Restore analytics structure after empty state
+     */
+    restoreAnalyticsStructure() {
+        const content = document.getElementById('analytics-content');
+        if (!content) return;
+        
+        content.innerHTML = `
+            <!-- Overview Cards -->
+            <div class="analytics-overview">
+                <div class="stat-card">
+                    <div class="stat-label">Total Appointments</div>
+                    <div class="stat-value" id="analytics-total-appointments">0</div>
+                    <div id="analytics-total-appointments-comparison" class="stat-comparison"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Hours</div>
+                    <div class="stat-value" id="analytics-total-hours">0h</div>
+                    <div id="analytics-total-hours-comparison" class="stat-comparison"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Daily Workload</div>
+                    <div class="stat-value" id="analytics-avg-daily">0h</div>
+                    <div id="analytics-avg-daily-comparison" class="stat-comparison"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Busiest Day</div>
+                    <div class="stat-value" id="analytics-busiest-day">-</div>
+                    <div id="analytics-busiest-day-comparison" class="stat-comparison"></div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="analytics-grid">
+                <!-- Workload Trend -->
+                <div class="analytics-card">
+                    <h3>Workload Trend</h3>
+                    <div id="workload-trend-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Client Distribution -->
+                <div class="analytics-card">
+                    <h3>Top Clients/Pets</h3>
+                    <div id="client-distribution-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Appointment Types -->
+                <div class="analytics-card">
+                    <h3>Service Types</h3>
+                    <div id="appointment-types-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Busiest Days -->
+                <div class="analytics-card">
+                    <h3>Busiest Days of Week</h3>
+                    <div id="busiest-days-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Busiest Times -->
+                <div class="analytics-card">
+                    <h3>Busiest Times of Day</h3>
+                    <div id="busiest-times-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Duration Distribution -->
+                <div class="analytics-card">
+                    <h3>Visit Duration Distribution</h3>
+                    <div id="duration-distribution-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Weekly Insights -->
+                <div class="analytics-card analytics-card-full">
+                    <h3>Key Insights</h3>
+                    <div id="analytics-insights" class="insights-list"></div>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -904,27 +1031,32 @@ class RenderEngine {
         const busyPos = (thresholds.busy / maxValue * 100);
         const highPos = (thresholds.high / maxValue * 100);
         const burnoutPos = (thresholds.burnout / maxValue * 100);
+        
+        // Container height and label space constants
+        // The container is 250px, we reserve 20px for labels at the bottom
+        const containerHeight = 250;
+        const labelSpace = 20;
+        const barAreaHeight = containerHeight - labelSpace; // 230px for bars
 
         const html = '<div class="chart-with-thresholds">' +
-            // Background zones for visual clarity (4 zones)
-            '<div class="threshold-zone comfortable" style="position: absolute; bottom: 0; left: 0; right: 0; height: ' + comfortablePos + '%;"></div>' +
-            '<div class="threshold-zone busy" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0; height: ' + (busyPos - comfortablePos) + '%;"></div>' +
-            '<div class="threshold-zone high" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0; height: ' + (highPos - busyPos) + '%;"></div>' +
-            '<div class="threshold-zone burnout" style="position: absolute; bottom: ' + highPos + '%; left: 0; right: 0; height: ' + (100 - highPos) + '%;"></div>' +
-            // Average line (rendered before threshold lines so it appears below them visually)
-            (avgValue > 0 ? '<div class="average-line" style="position: absolute; bottom: ' + avgPos + '%; left: 0; right: 0;" data-label="' + Utils.formatHours(avgValue) + ' avg"></div>' : '') +
-            // Threshold lines (4 lines)
-            '<div class="threshold-line comfortable" style="position: absolute; bottom: ' + comfortablePos + '%; left: 0; right: 0;" data-label="' + thresholds.comfortable + 'h comfortable"></div>' +
-            '<div class="threshold-line busy" style="position: absolute; bottom: ' + busyPos + '%; left: 0; right: 0;" data-label="' + thresholds.busy + 'h busy"></div>' +
-            '<div class="threshold-line high" style="position: absolute; bottom: ' + highPos + '%; left: 0; right: 0;" data-label="' + thresholds.high + 'h high"></div>' +
-            '<div class="threshold-line burnout" style="position: absolute; bottom: ' + burnoutPos + '%; left: 0; right: 0;" data-label="' + thresholds.burnout + 'h burnout"></div>' +
-            // Bar chart - using pixel heights since percentage heights don't work well in flex columns
-            '<div class="bar-chart" style="position: absolute; bottom: 16px; left: 0; right: 0; height: 200px;">' + data.map(item => {
+            // Background zones for visual clarity (4 zones) - positioned in upper area, leaving label space
+            '<div class="threshold-zone comfortable" style="position: absolute; bottom: ' + labelSpace + 'px; left: 0; right: 0; height: ' + (comfortablePos * barAreaHeight / 100) + 'px;"></div>' +
+            '<div class="threshold-zone busy" style="position: absolute; bottom: ' + (labelSpace + comfortablePos * barAreaHeight / 100) + 'px; left: 0; right: 0; height: ' + ((busyPos - comfortablePos) * barAreaHeight / 100) + 'px;"></div>' +
+            '<div class="threshold-zone high" style="position: absolute; bottom: ' + (labelSpace + busyPos * barAreaHeight / 100) + 'px; left: 0; right: 0; height: ' + ((highPos - busyPos) * barAreaHeight / 100) + 'px;"></div>' +
+            '<div class="threshold-zone burnout" style="position: absolute; bottom: ' + (labelSpace + highPos * barAreaHeight / 100) + 'px; left: 0; right: 0; height: ' + ((100 - highPos) * barAreaHeight / 100) + 'px;"></div>' +
+            // Average line - positioned in bar area
+            (avgValue > 0 ? '<div class="average-line" style="position: absolute; bottom: ' + (labelSpace + avgPos * barAreaHeight / 100) + 'px; left: 0; right: 0;" data-label="' + Utils.formatHours(avgValue) + ' avg"></div>' : '') +
+            // Threshold lines (4 lines) - positioned in bar area
+            '<div class="threshold-line comfortable" style="position: absolute; bottom: ' + (labelSpace + comfortablePos * barAreaHeight / 100) + 'px; left: 0; right: 0;" data-label="' + thresholds.comfortable + 'h comfortable"></div>' +
+            '<div class="threshold-line busy" style="position: absolute; bottom: ' + (labelSpace + busyPos * barAreaHeight / 100) + 'px; left: 0; right: 0;" data-label="' + thresholds.busy + 'h busy"></div>' +
+            '<div class="threshold-line high" style="position: absolute; bottom: ' + (labelSpace + highPos * barAreaHeight / 100) + 'px; left: 0; right: 0;" data-label="' + thresholds.high + 'h high"></div>' +
+            '<div class="threshold-line burnout" style="position: absolute; bottom: ' + (labelSpace + burnoutPos * barAreaHeight / 100) + 'px; left: 0; right: 0;" data-label="' + thresholds.burnout + 'h burnout"></div>' +
+            // Bar chart - using pixel heights that align with threshold lines
+            '<div class="bar-chart" style="position: absolute; bottom: 0; left: 0; right: 0; height: ' + containerHeight + 'px;">' + data.map(item => {
                 const displayValue = Math.min(item.value, displayCap);
                 const isOverflow = item.value > displayCap;
-                const heightPercent = (displayValue / maxValue * 100);
-                // Calculate pixel height based on 180px available (200px - 20px for labels)
-                const barHeight = Math.max(item.value > 0 ? 2 : 0, (displayValue / maxValue) * 180);
+                // Calculate bar height to align with threshold lines (using same scale as thresholds)
+                const barHeight = Math.max(item.value > 0 ? 2 : 0, (displayValue / maxValue) * barAreaHeight);
                 const valueText = item.value < 1 ? item.value.toFixed(1) : Math.round(item.value);
                 
                 // Determine bar status based on thresholds (4 levels + overflow)
@@ -941,7 +1073,6 @@ class RenderEngine {
                 
                 return '<div class="bar-chart-item">' +
                     '<div class="bar animated ' + barStatus + (isOverflow ? ' overflow' : '') + '" style="height: ' + barHeight + 'px;" title="' + item.label + ': ' + Utils.formatHours(item.value) + '">' +
-                    (item.value > 0 ? '<div class="bar-value">' + valueText + (isOverflow ? '+' : '') + '</div>' : '') +
                     '</div>' +
                     '<div class="bar-label">' + (item.shortLabel !== undefined ? item.shortLabel : item.label) + '</div>' +
                     '</div>';

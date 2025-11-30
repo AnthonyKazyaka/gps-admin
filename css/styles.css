@@ -34,6 +34,7 @@
     --warning-400: #FBBF24;
     --warning-500: #F59E0B;
     --warning-600: #D97706;
+    --warning-700: #B45309;
     --danger-50: #FEF2F2;
     --danger-400: #F87171;
     --danger-500: #EF4444;
@@ -1507,8 +1508,11 @@ label {
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
+    align-self: flex-end;
     min-width: 0; /* Allow flex items to shrink below content size */
     max-width: 24px; /* Limit max width for many items */
+    margin: 0;
+    padding: 0;
 }
 
 .bar {
@@ -1519,6 +1523,9 @@ label {
     transition: all var(--transition-base);
     cursor: pointer;
     z-index: 2;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
 }
 
 .bar:hover {
@@ -1619,7 +1626,8 @@ label {
     text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-height: 14px; /* Reserve space even for empty labels */
+    height: 16px; /* Fixed height for consistent bar alignment */
+    line-height: 16px; /* Match height for vertical centering */
     margin-top: 4px;
     flex-shrink: 0;
 }
@@ -2251,8 +2259,7 @@ label {
 /* Chart Threshold Lines */
 .chart-with-thresholds {
     position: relative;
-    height: 100%;
-    min-height: 250px;
+    height: 250px;
     overflow: visible;
 }
 
