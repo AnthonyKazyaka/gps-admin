@@ -30,7 +30,9 @@ class RenderEngine {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const todayEvents = this.eventProcessor.getEventsForDate(state.events, today);
+        const todayEvents = this.eventProcessor.getEventsForDate(state.events, today, {
+            workEventsOnly: true
+        });
         const metrics = this.calculator.calculateWorkloadMetrics(todayEvents, today, {
             includeTravel: state.settings.includeTravelTime
         });
