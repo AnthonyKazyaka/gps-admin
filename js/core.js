@@ -90,6 +90,17 @@ class GPSAdminApp {
             menuToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('open');
             });
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', (e) => {
+                // Check if sidebar is open
+                if (!sidebar.classList.contains('open')) return;
+                
+                // Check if click is outside sidebar and menu toggle button
+                if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            });
         }
 
         // Sidebar collapse toggle (desktop)
