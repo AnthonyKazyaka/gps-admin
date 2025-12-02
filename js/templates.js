@@ -51,9 +51,9 @@ class TemplatesManager {
                 name: 'Overnight Stay',
                 icon: '🌙',
                 type: 'overnight',
-                duration: 720, // 12 hours (6pm to 6am)
-                defaultStartTime: '18:00', // 6:00 PM
-                defaultEndTime: '06:00', // 6:00 AM next day
+                duration: 720, // 12 hours (8pm to 8am)
+                defaultStartTime: '20:00', // 8:00 PM
+                defaultEndTime: '08:00', // 8:00 AM next day
                 includeTravel: false,
                 travelBuffer: 15, // minutes before and after
                 defaultNotes: 'Overnight pet sitting - includes evening and morning care',
@@ -454,32 +454,73 @@ class TemplatesManager {
                 });
             }
         } else if (bookingType === 'overnight-stay') {
-            // Generate overnight events (one spanning event)
+            // Generate overnight events - 12-hour blocks for each night
             if (overnightConfig) {
                 const template = overnightConfig.templateId ? this.getTemplateById(overnightConfig.templateId) : null;
                 const [arrHours, arrMinutes] = overnightConfig.arrivalTime.split(':').map(Number);
                 const [depHours, depMinutes] = overnightConfig.departureTime.split(':').map(Number);
+                const overnightDuration = 12 * 60; // 12 hours in minutes
 
-                // First night arrival
-                const overnightStart = new Date(start);
-                overnightStart.setHours(arrHours, arrMinutes, 0, 0);
+                // Create an overnight segment for each day of the stay
+                for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
+                    const currentDate = new Date(start);
+                    currentDate.setDate(start.getDate() + dayOffset);
 
-                // Last day departure
-                const overnightEnd = new Date(end);
-                overnightEnd.setHours(depHours, depMinutes, 0, 0);
+                    let segmentStart, segmentEnd, segmentLabel;
 
-                events.push({
-                    id: this.generateId(),
-                    title: `${clientName} HS`,
-                    start: overnightStart,
-                    end: overnightEnd,
-                    location: location,
-                    type: 'overnight',
-                    templateId: overnightConfig.templateId || null,
-                    isLocal: true,
-                    ignored: false,
-                    isWorkEvent: true,
-                });
+                    if (dayOffset === 0) {
+                        // First day: arrival time + 12 hours (or until departure if same-day)
+                        segmentStart = new Date(currentDate);
+                        segmentStart.setHours(arrHours, arrMinutes, 0, 0);
+                        
+                        if (dayCount === 1) {
+                            // Same-day checkout
+                            segmentEnd = new Date(currentDate);
+                            segmentEnd.setHours(depHours, depMinutes, 0, 0);
+                            segmentLabel = 'Start';
+                        } else {
+                            // Multi-day stay - 12 hour block
+                            segmentEnd = new Date(segmentStart);
+                            segmentEnd.setMinutes(segmentEnd.getMinutes() + overnightDuration);
+                            segmentLabel = 'Start';
+                        }
+                    } else if (dayOffset === dayCount - 1) {
+                        // Last day: 12 hours before departure (or from midnight if departure is early)
+                        segmentEnd = new Date(currentDate);
+                        segmentEnd.setHours(depHours, depMinutes, 0, 0);
+                        segmentStart = new Date(segmentEnd);
+                        segmentStart.setMinutes(segmentStart.getMinutes() - overnightDuration);
+                        
+                        // If calculated start is before midnight, start at midnight
+                        const midnight = new Date(currentDate);
+                        midnight.setHours(0, 0, 0, 0);
+                        if (segmentStart < midnight) {
+                            segmentStart = midnight;
+                        }
+                        segmentLabel = 'Last';
+                    } else {
+                        // Middle days: 12-hour block starting at midnight
+                        segmentStart = new Date(currentDate);
+                        segmentStart.setHours(0, 0, 0, 0);
+                        segmentEnd = new Date(segmentStart);
+                        segmentEnd.setMinutes(segmentEnd.getMinutes() + overnightDuration);
+                        segmentLabel = `${dayOffset + 1}${this.getOrdinalSuffix(dayOffset + 1)}`;
+                    }
+
+                    events.push({
+                        id: this.generateId(),
+                        title: `${clientName} HS${segmentLabel ? ' - ' + segmentLabel : ''}`,
+                        start: segmentStart,
+                        end: segmentEnd,
+                        location: location,
+                        type: 'overnight',
+                        templateId: overnightConfig.templateId || null,
+                        isLocal: true,
+                        ignored: false,
+                        isWorkEvent: true,
+                        overnightSegment: segmentLabel, // Track which segment this is
+                    });
+                }
             }
 
             // Generate drop-in visits if enabled
@@ -528,6 +569,18 @@ class TemplatesManager {
         events.sort((a, b) => a.start - b.start);
 
         return events;
+    }
+
+    /**
+     * Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
+     */
+    getOrdinalSuffix(num) {
+        const j = num % 10;
+        const k = num % 100;
+        if (j === 1 && k !== 11) return 'st';
+        if (j === 2 && k !== 12) return 'nd';
+        if (j === 3 && k !== 13) return 'rd';
+        return 'th';
     }
 
     /**

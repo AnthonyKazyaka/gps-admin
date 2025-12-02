@@ -2941,6 +2941,24 @@ label {
     z-index: 5;
 }
 
+.timeline-event-block.overnight-event {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(167, 139, 250, 0.1) 100%);
+    border-color: #8B5CF6;
+    color: #6D28D9;
+    font-weight: 600;
+}
+
+.timeline-event-block.overnight-event:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(167, 139, 250, 0.15) 100%);
+    border-color: #7C3AED;
+}
+
+.timeline-event-block.overnight-event.existing-event {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(167, 139, 250, 0.05) 100%);
+    border-color: #C4B5FD;
+    color: #9333EA;
+}
+
 .timeline-event-block.existing-event:active {
     cursor: default;
     box-shadow: none;
@@ -3063,4 +3081,132 @@ label {
     .timeline-event-block:active .timeline-tooltip {
         opacity: 1;
     }
+}
+
+/* Overnight Event Continuation Indicators */
+.continuation-indicator {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    vertical-align: middle;
+}
+
+.continuation-morning {
+    color: #8B5CF6;
+}
+
+.continuation-evening {
+    color: #8B5CF6;
+}
+
+.timeline-day-container.has-morning-continuation {
+    border-left: 3px solid #8B5CF6;
+}
+
+.timeline-day-container.has-evening-continuation {
+    border-right: 3px solid #8B5CF6;
+}
+
+.timeline-day-container.has-morning-continuation .timeline-header,
+.timeline-day-container.has-evening-continuation .timeline-header {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.08) 0%, var(--gray-50) 100%);
+}
+
+/* Overnight continuation arrows on event blocks */
+.overnight-arrow {
+    position: absolute;
+    font-size: 0.65rem;
+    color: #8B5CF6;
+    opacity: 0.9;
+}
+
+.overnight-arrow-left {
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.overnight-arrow-right {
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Overnight blocks that continue to/from another day */
+.timeline-event-block.overnight-continues-next {
+    border-right: 3px solid #7C3AED;
+    border-right-style: dashed;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.timeline-event-block.overnight-continues-prev {
+    border-left: 3px solid #7C3AED;
+    border-left-style: dashed;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Improve text visibility in narrow overnight blocks */
+.timeline-event-block.overnight-event .timeline-event-content {
+    font-size: 0.7rem;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    flex: 1;
+    text-align: center;
+}
+
+/* Small dropin events in overnight view */
+.timeline-event-block:not(.overnight-event) {
+    min-width: 40px;
+}
+
+.timeline-event-block:not(.overnight-event) .timeline-event-content {
+    font-size: 0.65rem;
+}
+
+/* Preview Legend */
+.preview-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid;
+}
+
+.legend-color.overnight {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(167, 139, 250, 0.1) 100%);
+    border-color: #8B5CF6;
+}
+
+.legend-color.dropin {
+    background: var(--primary-100);
+    border-color: var(--primary-300);
+}
+
+.legend-color.existing {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+}
+
+.continuation-badge {
+    font-size: 0.7rem;
+    color: #8B5CF6;
+    font-weight: 600;
 }

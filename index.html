@@ -987,7 +987,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="multi-overnight-start">Evening Arrival</label>
-                                    <input type="time" id="multi-overnight-start" class="input" value="18:00">
+                                    <input type="time" id="multi-overnight-start" class="input" value="20:00">
                                 </div>
                                 <div class="form-group">
                                     <label for="multi-overnight-end">Morning Departure</label>
@@ -1063,6 +1063,25 @@
                     <div id="multi-event-conflicts" class="alert alert-warning" style="display: none; margin-bottom: var(--spacing-md);">
                         <strong>⚠️ Schedule Conflicts Detected</strong>
                         <p>Some events overlap with existing appointments. Please review the schedule below.</p>
+                    </div>
+
+                    <div class="preview-legend">
+                        <div class="legend-item">
+                            <span class="legend-color overnight"></span>
+                            <span>🌙 Overnight stay</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color dropin"></span>
+                            <span>🏃 Drop-in visit</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color existing"></span>
+                            <span>Existing event</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="continuation-badge">◀ ▶</span>
+                            <span>Continues next/prev day</span>
+                        </div>
                     </div>
 
                     <div style="display: flex; justify-content: flex-end; margin-bottom: var(--spacing-sm);">

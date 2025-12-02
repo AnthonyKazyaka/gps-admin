@@ -1567,6 +1567,24 @@ class GPSAdminApp {
                 this.renderMultiEventTimeline();
             });
         }
+
+        // Overnight template selection handler
+        const overnightTemplateSelect = document.getElementById('multi-overnight-template');
+        if (overnightTemplateSelect) {
+            overnightTemplateSelect.addEventListener('change', (e) => {
+                const templateId = e.target.value;
+                if (templateId && this.templatesManager) {
+                    const template = this.templatesManager.getTemplateById(templateId);
+                    if (template && template.defaultStartTime && template.defaultEndTime) {
+                        // Update arrival and departure times from template
+                        const arrivalInput = document.getElementById('multi-overnight-start');
+                        const departureInput = document.getElementById('multi-overnight-end');
+                        if (arrivalInput) arrivalInput.value = template.defaultStartTime;
+                        if (departureInput) departureInput.value = template.defaultEndTime;
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -1633,7 +1651,10 @@ class GPSAdminApp {
         if (overnightSelect) {
             overnightSelect.innerHTML = '<option value="">-- Select Template --</option>';
             templates.filter(t => t.type === 'overnight').forEach(t => {
-                overnightSelect.innerHTML += `<option value="${t.id}">${t.icon} ${t.name}</option>`;
+                const timeInfo = t.defaultStartTime && t.defaultEndTime 
+                    ? ` (${t.defaultStartTime} - ${t.defaultEndTime})` 
+                    : ` (${t.duration / 60}h)`;
+                overnightSelect.innerHTML += `<option value="${t.id}">${t.icon} ${t.name}${timeInfo}</option>`;
             });
         }
     }
@@ -2039,7 +2060,7 @@ class GPSAdminApp {
         const previewContainer = document.getElementById('multi-event-preview');
         const eventsByDay = {};
 
-        // Group by day
+        // Group by day - also add overnight events to their end day for morning continuation display
         events.forEach((event, index) => {
             const dayKey = event.start.toDateString();
             if (!eventsByDay[dayKey]) {
@@ -2048,6 +2069,30 @@ class GPSAdminApp {
             // Store index for reference
             event._index = index;
             eventsByDay[dayKey].push(event);
+            
+            // For overnight events that cross midnight, also add to the end day
+            if (event.type === 'overnight') {
+                const eventStart = new Date(event.start);
+                const eventEnd = new Date(event.end);
+                const startDay = new Date(eventStart);
+                startDay.setHours(0, 0, 0, 0);
+                const endDay = new Date(eventEnd);
+                endDay.setHours(0, 0, 0, 0);
+                
+                if (endDay > startDay) {
+                    const endDayKey = eventEnd.toDateString();
+                    if (!eventsByDay[endDayKey]) {
+                        eventsByDay[endDayKey] = [];
+                    }
+                    // Create a clone marked as morning continuation
+                    const morningEvent = {
+                        ...event,
+                        _index: index,
+                        _isMorningContinuation: true,
+                    };
+                    eventsByDay[endDayKey].push(morningEvent);
+                }
+            }
         });
 
         // Add existing events to the view
@@ -2086,17 +2131,34 @@ class GPSAdminApp {
         const endHour = 23; // 11 PM
         const timelineDurationHours = endHour - startHour;
 
-        Object.entries(eventsByDay).forEach(([dayKey, dayEvents]) => {
+        // Sort days chronologically for proper overnight connection display
+        const sortedDays = Object.entries(eventsByDay).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+
+        sortedDays.forEach(([dayKey, dayEvents], dayIndex) => {
             const date = new Date(dayKey);
             const dateLabel = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             
-            // Count only new events for the header
-            const newEventsCount = dayEvents.filter(e => !e.isExisting).length;
+            // Check if there's an overnight event continuing from previous day (morning continuation)
+            const hasMorningContinuation = dayEvents.some(e => e._isMorningContinuation);
+            
+            // Check if there's an overnight event continuing to next day  
+            const hasEveningContinuation = dayEvents.some(e => {
+                if (!e.type || e.type !== 'overnight' || e._isMorningContinuation) return false;
+                const eventEnd = new Date(e.end);
+                const eventEndDay = new Date(eventEnd);
+                eventEndDay.setHours(0, 0, 0, 0);
+                const currentDay = new Date(date);
+                currentDay.setHours(0, 0, 0, 0);
+                return eventEndDay > currentDay;
+            });
+            
+            // Count only new events for the header (exclude morning continuations to avoid double counting)
+            const newEventsCount = dayEvents.filter(e => !e.isExisting && !e._isMorningContinuation).length;
             
             html += `
-                <div class="timeline-day-container">
+                <div class="timeline-day-container${hasMorningContinuation ? ' has-morning-continuation' : ''}${hasEveningContinuation ? ' has-evening-continuation' : ''}">
                     <div class="timeline-header">
-                        <span>${dateLabel}</span>
+                        <span>${hasMorningContinuation ? '<span class="continuation-indicator continuation-morning" title="Overnight continues from previous day">◀ 🌙</span> ' : ''}${dateLabel}${hasEveningContinuation ? ' <span class="continuation-indicator continuation-evening" title="Overnight continues to next day">🌙 ▶</span>' : ''}</span>
                         <span class="preview-day-count">${newEventsCount} new event${newEventsCount !== 1 ? 's' : ''}</span>
                     </div>
                     <div class="timeline-track-wrapper" data-date="${dayKey}">
@@ -2116,34 +2178,94 @@ class GPSAdminApp {
 
             html += `</div>`; // End grid
 
-            // Events
+            // Events - split overnight events that cross midnight for display
             dayEvents.forEach(event => {
-                const startPercent = this.timeToPercent(event.start, startHour, timelineDurationHours);
-                const endPercent = this.timeToPercent(event.end, startHour, timelineDurationHours);
-                // Ensure visible width
-                const widthPercent = Math.max(endPercent - startPercent, 2); 
+                const isOvernight = event.type === 'overnight';
+                const isMorningContinuation = event._isMorningContinuation;
+                
+                const eventStart = new Date(event.start);
+                const eventEnd = new Date(event.end);
                 
                 const hasConflict = !event.isExisting && conflicts.includes(event);
                 const conflictClass = hasConflict ? 'has-conflict' : '';
                 const isExisting = event.isExisting;
-                const extraClass = isExisting ? 'existing-event' : '';
+                const overnightClass = isOvernight ? 'overnight-event' : '';
+                const extraClass = `${isExisting ? 'existing-event' : ''} ${overnightClass}`.trim();
                 
-                const timeLabel = `${this.formatTime(event.start)} - ${this.formatTime(event.end)}`;
-                const isOvernight = event.type === 'overnight';
                 const icon = isOvernight ? '🌙' : '🏃';
+                
+                // Check if overnight event crosses midnight - split into two blocks for display
+                const eventStartDay = new Date(eventStart);
+                eventStartDay.setHours(0, 0, 0, 0);
+                const eventEndDay = new Date(eventEnd);
+                eventEndDay.setHours(0, 0, 0, 0);
+                
+                const crossesMidnight = isOvernight && eventEndDay > eventStartDay && !isMorningContinuation;
+                
+                if (isMorningContinuation) {
+                    // This is the morning portion of an overnight event (added to end day)
+                    // Show from left edge of timeline to the end time
+                    const morningEndPercent = this.timeToPercent(eventEnd, startHour, timelineDurationHours);
+                    const morningWidthPercent = Math.max(morningEndPercent, 5); // Minimum 5% width
+                    
+                    const morningTimeLabel = `← prev day - ${this.formatTime(eventEnd)}`;
+                    
+                    html += `
+                        <div class="timeline-event-block ${conflictClass} ${extraClass} overnight-continues-prev" 
+                             style="left: 0%; width: ${morningWidthPercent}%;"
+                             data-index="${isExisting ? '' : event._index}"
+                             title="${event.title} (continues from previous day, ends ${this.formatTime(eventEnd)})">
+                            <span class="overnight-arrow overnight-arrow-left">◀</span>
+                            <span class="timeline-event-content">${icon} ${event.title}</span>
+                            <div class="timeline-tooltip">${morningTimeLabel}</div>
+                        </div>
+                    `;
+                } else if (crossesMidnight) {
+                    // Evening portion (start to 11:59 PM) - show on current day
+                    const eveningEnd = new Date(eventStart);
+                    eveningEnd.setHours(23, 59, 59, 999);
+                    
+                    const eveningStartPercent = this.timeToPercent(eventStart, startHour, timelineDurationHours);
+                    const eveningEndPercent = 100; // End of timeline
+                    const eveningWidthPercent = Math.max(eveningEndPercent - eveningStartPercent, 2);
+                    
+                    const eveningTimeLabel = `${this.formatTime(eventStart)} → next day`;
+                    const fullTimeLabel = `${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)} (next day)`;
+                    
+                    html += `
+                        <div class="timeline-event-block ${conflictClass} ${extraClass} overnight-continues-next" 
+                             style="left: ${eveningStartPercent}%; width: ${eveningWidthPercent}%;"
+                             data-index="${isExisting ? '' : event._index}"
+                             title="${event.title} (${fullTimeLabel})">
+                            ${!isExisting ? '<div class="timeline-handle timeline-handle-w" data-action="resize-left"></div>' : ''}
+                            <span class="timeline-event-content">${icon} ${event.title}</span>
+                            <span class="overnight-arrow overnight-arrow-right">▶</span>
+                            <div class="timeline-tooltip">${eveningTimeLabel}</div>
+                            ${!isExisting ? '<div class="timeline-handle timeline-handle-e" data-action="resize-right"></div>' : ''}
+                            ${!isExisting ? `<button class="timeline-event-delete" data-delete-index="${event._index}" title="Remove this event">×</button>` : ''}
+                        </div>
+                    `;
+                } else {
+                    // Single block for same-day events
+                    const startPercent = this.timeToPercent(eventStart, startHour, timelineDurationHours);
+                    const endPercent = this.timeToPercent(eventEnd, startHour, timelineDurationHours);
+                    const widthPercent = Math.max(endPercent - startPercent, 2);
+                    
+                    const timeLabel = `${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}`;
 
-                html += `
-                    <div class="timeline-event-block ${conflictClass} ${extraClass}" 
-                         style="left: ${startPercent}%; width: ${widthPercent}%;"
-                         data-index="${isExisting ? '' : event._index}"
-                         title="${event.title} (${timeLabel})">
-                        ${!isExisting ? '<div class="timeline-handle timeline-handle-w" data-action="resize-left"></div>' : ''}
-                        <span class="timeline-event-content">${icon} ${event.title}</span>
-                        <div class="timeline-tooltip">${timeLabel}</div>
-                        ${!isExisting ? '<div class="timeline-handle timeline-handle-e" data-action="resize-right"></div>' : ''}
-                        ${!isExisting ? `<button class="timeline-event-delete" data-delete-index="${event._index}" title="Remove this event">×</button>` : ''}
-                    </div>
-                `;
+                    html += `
+                        <div class="timeline-event-block ${conflictClass} ${extraClass}" 
+                             style="left: ${startPercent}%; width: ${widthPercent}%;"
+                             data-index="${isExisting ? '' : event._index}"
+                             title="${event.title} (${timeLabel})">
+                            ${!isExisting ? '<div class="timeline-handle timeline-handle-w" data-action="resize-left"></div>' : ''}
+                            <span class="timeline-event-content">${icon} ${event.title}</span>
+                            <div class="timeline-tooltip">${timeLabel}</div>
+                            ${!isExisting ? '<div class="timeline-handle timeline-handle-e" data-action="resize-right"></div>' : ''}
+                            ${!isExisting ? `<button class="timeline-event-delete" data-delete-index="${event._index}" title="Remove this event">×</button>` : ''}
+                        </div>
+                    `;
+                }
             });
 
             html += `</div></div>`;
@@ -2418,7 +2540,7 @@ class GPSAdminApp {
         } else {
             config.overnightConfig = {
                 templateId: document.getElementById('multi-overnight-template').value || null,
-                arrivalTime: document.getElementById('multi-overnight-start').value || '18:00',
+                arrivalTime: document.getElementById('multi-overnight-start').value || '20:00',
                 departureTime: document.getElementById('multi-overnight-end').value || '08:00',
             };
 
