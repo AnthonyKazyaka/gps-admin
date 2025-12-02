@@ -707,7 +707,7 @@
                     <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="appointment-travel">
-                            <span>Include travel time</span>
+                            <span>Includes travel time</span>
                         </label>
                     </div>
 
@@ -795,6 +795,19 @@
                         <div class="form-group">
                             <label for="template-minutes">Minutes</label>
                             <input type="number" id="template-minutes" class="form-control" min="0" max="59" step="15" value="30">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="template-start-time">Default Start Time (optional)</label>
+                            <input type="time" id="template-start-time" class="form-control">
+                            <small class="form-help">Leave blank to require time when using template</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="template-end-time">Default End Time (optional)</label>
+                            <input type="time" id="template-end-time" class="form-control">
+                            <small class="form-help">Auto-calculated from start + duration if blank</small>
                         </div>
                     </div>
 

@@ -2085,12 +2085,13 @@ class RenderEngine {
                         </div>
                         <div class="template-detail">
                             <span class="template-detail-label">Travel Time:</span>
-                            <span class="template-detail-value">${template.includeTravel ? 'Included' : 'Not included'}</span>
+                            <span class="template-detail-value">${template.includeTravel ? 'Includes travel time' : 'No travel time'}</span>
                         </div>
                     </div>
                     <div class="template-actions ${isManaging ? 'manage-mode' : ''}">
                         ${!isManaging ? `
                             <button class="btn btn-primary btn-sm" onclick="window.gpsApp.useTemplate('${template.id}')">Use Template</button>
+                            <button class="btn btn-secondary btn-sm" onclick="window.gpsApp.duplicateTemplate('${template.id}')">Duplicate</button>
                             <button class="btn btn-secondary btn-sm" onclick="window.gpsApp.showTemplateModal('${template.id}')">Edit</button>
                         ` : ''}
                         ${isManaging && canDelete ? `
@@ -2348,11 +2349,16 @@ class RenderEngine {
             titleInput.value = template.name;
         }
 
+        // Set default start time if template has one
+        const timeInput = document.getElementById('appointment-time');
+        if (timeInput && template.defaultStartTime) {
+            timeInput.value = template.defaultStartTime;
+        }
+
         // Show and populate custom duration controls
         const customControls = document.getElementById('template-duration-controls');
         const durationInput = document.getElementById('template-duration-input');
         if (customControls && durationInput) {
-            customControls.style.display = 'block';
             durationInput.value = template.duration;
         }
 
@@ -2362,10 +2368,17 @@ class RenderEngine {
         const matchingOption = Array.from(durationSelect.options).find(opt => opt.value === durationValue);
 
         if (matchingOption) {
+            // Template duration matches a dropdown option - hide custom controls
             durationSelect.value = durationValue;
+            if (customControls) {
+                customControls.style.display = 'none';
+            }
         } else {
-            // Set to custom if duration not in dropdown
+            // Template duration doesn't match - show custom controls
             durationSelect.value = 'custom';
+            if (customControls) {
+                customControls.style.display = 'block';
+            }
         }
 
         // Set travel time checkbox

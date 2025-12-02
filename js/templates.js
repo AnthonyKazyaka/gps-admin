@@ -6,7 +6,7 @@
 class TemplatesManager {
     constructor() {
         this.templates = [];
-        this.TEMPLATES_VERSION = 2; // Increment this when defaults change
+        this.TEMPLATES_VERSION = 4; // Increment this when defaults change
         this.loadTemplates();
     }
 
@@ -51,8 +51,10 @@ class TemplatesManager {
                 name: 'Overnight Stay',
                 icon: '🌙',
                 type: 'overnight',
-                duration: 960, // 16 hours (6pm to 10am)
-                includeTravel: true,
+                duration: 720, // 12 hours (6pm to 6am)
+                defaultStartTime: '18:00', // 6:00 PM
+                defaultEndTime: '06:00', // 6:00 AM next day
+                includeTravel: false,
                 travelBuffer: 15, // minutes before and after
                 defaultNotes: 'Overnight pet sitting - includes evening and morning care',
                 color: '#8B5CF6',
@@ -64,7 +66,9 @@ class TemplatesManager {
                 icon: '🏃',
                 type: 'dropin',
                 duration: 30,
-                includeTravel: true,
+                defaultStartTime: '12:00', // Noon
+                defaultEndTime: '12:30',
+                includeTravel: false,
                 travelBuffer: 15,
                 defaultNotes: 'Standard drop-in visit',
                 color: '#06B6D4',
@@ -76,7 +80,9 @@ class TemplatesManager {
                 icon: '🦮',
                 type: 'walk',
                 duration: 60,
-                includeTravel: true,
+                defaultStartTime: '10:00', // 10:00 AM
+                defaultEndTime: '11:00',
+                includeTravel: false,
                 travelBuffer: 15,
                 defaultNotes: '1 hour walk in neighborhood or park',
                 color: '#F59E0B',
@@ -88,6 +94,8 @@ class TemplatesManager {
                 icon: '👋',
                 type: 'meet-greet',
                 duration: 60,
+                defaultStartTime: '14:00', // 2:00 PM
+                defaultEndTime: '15:00',
                 includeTravel: false,
                 travelBuffer: 0,
                 defaultNotes: 'Initial consultation with new client',
@@ -128,6 +136,8 @@ class TemplatesManager {
             icon: templateData.icon || '📅',
             type: templateData.type || 'other',
             duration: templateData.duration || 30,
+            defaultStartTime: templateData.defaultStartTime || null,
+            defaultEndTime: templateData.defaultEndTime || null,
             includeTravel: templateData.includeTravel !== false,
             travelBuffer: templateData.travelBuffer || 15,
             defaultNotes: templateData.defaultNotes || '',

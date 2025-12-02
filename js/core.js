@@ -224,6 +224,30 @@ class GPSAdminApp {
             });
         }
 
+        // Duration dropdown change handler - syncs with custom field
+        const durationSelect = document.getElementById('appointment-duration');
+        const customDurationControls = document.getElementById('template-duration-controls');
+        const customDurationInput = document.getElementById('template-duration-input');
+        
+        if (durationSelect && customDurationControls && customDurationInput) {
+            durationSelect.addEventListener('change', () => {
+                const value = durationSelect.value;
+                
+                if (value === 'custom') {
+                    // Show custom controls and keep current value
+                    customDurationControls.style.display = 'block';
+                    // If custom input is empty or default, set a reasonable value
+                    if (!customDurationInput.value || customDurationInput.value === '30') {
+                        customDurationInput.value = '120'; // Default to 2 hours for custom
+                    }
+                } else {
+                    // Hide custom controls and sync the value
+                    customDurationControls.style.display = 'none';
+                    customDurationInput.value = value;
+                }
+            });
+        }
+
         // Template duration adjustment buttons
         const durationDecrease = document.getElementById('duration-decrease');
         const durationIncrease = document.getElementById('duration-increase');
@@ -431,6 +455,9 @@ class GPSAdminApp {
                 break;
             case 'settings':
                 this.renderSettings();
+                break;
+            case 'templates':
+                this.renderer.renderTemplates(this.state, this.templatesManager);
                 break;
         }
     }
@@ -1125,6 +1152,14 @@ class GPSAdminApp {
             document.getElementById('template-hours').value = Math.floor(template.duration / 60);
             document.getElementById('template-minutes').value = template.duration % 60;
             document.getElementById('template-include-travel').checked = template.includeTravel;
+            
+            // Set start/end times if they exist
+            if (template.defaultStartTime) {
+                document.getElementById('template-start-time').value = template.defaultStartTime;
+            }
+            if (template.defaultEndTime) {
+                document.getElementById('template-end-time').value = template.defaultEndTime;
+            }
 
             // Store template ID for editing
             modal.dataset.editingId = templateId;
@@ -1156,6 +1191,8 @@ class GPSAdminApp {
         const hours = parseInt(document.getElementById('template-hours').value) || 0;
         const minutes = parseInt(document.getElementById('template-minutes').value) || 0;
         const includeTravel = document.getElementById('template-include-travel').checked;
+        const defaultStartTime = document.getElementById('template-start-time').value || null;
+        const defaultEndTime = document.getElementById('template-end-time').value || null;
 
         const duration = (hours * 60) + minutes;
 
@@ -1179,6 +1216,8 @@ class GPSAdminApp {
                     icon: icon || '📋',
                     type,
                     duration,
+                    defaultStartTime,
+                    defaultEndTime,
                     includeTravel
                 });
                 Utils.showToast('Template updated!', 'success');
@@ -1189,6 +1228,8 @@ class GPSAdminApp {
                     icon: icon || '📋',
                     type,
                     duration,
+                    defaultStartTime,
+                    defaultEndTime,
                     includeTravel
                 });
                 Utils.showToast('Template created!', 'success');
@@ -1222,6 +1263,38 @@ class GPSAdminApp {
         } catch (error) {
             console.error('Error deleting template:', error);
             Utils.showToast(error.message, 'error');
+        }
+    }
+
+    /**
+     * Use template - applies template to appointment form
+     * @param {string} templateId - Template ID to use
+     */
+    useTemplate(templateId) {
+        if (!this.templatesManager) return;
+        // Open appointment modal with template pre-selected
+        this.showAppointmentModal(templateId);
+    }
+
+    /**
+     * Duplicate template - creates a copy of an existing template
+     * @param {string} templateId - Template ID to duplicate
+     */
+    duplicateTemplate(templateId) {
+        if (!this.templatesManager) return;
+
+        try {
+            const duplicate = this.templatesManager.duplicateTemplate(templateId);
+            console.log('✅ Template duplicated:', duplicate.name);
+            
+            // Re-render templates view
+            this.renderer.renderTemplates(this.state, this.templatesManager);
+            
+            // Show success message
+            Utils.showToast(`Template "${duplicate.name}" created successfully!`, 'success');
+        } catch (error) {
+            console.error('❌ Error duplicating template:', error);
+            Utils.showToast('Failed to duplicate template: ' + error.message, 'error');
         }
     }
 
@@ -1282,6 +1355,20 @@ class GPSAdminApp {
         if (dateInput) dateInput.value = defaultDate.toISOString().split('T')[0];
         if (timeInput) timeInput.value = '09:00';
 
+        // Initialize duration fields - sync custom input with dropdown default
+        const durationSelect = document.getElementById('appointment-duration');
+        const customDurationInput = document.getElementById('template-duration-input');
+        const customDurationControls = document.getElementById('template-duration-controls');
+        
+        if (durationSelect && customDurationInput) {
+            // Set custom input to match dropdown default (30 minutes)
+            customDurationInput.value = durationSelect.value;
+            // Hide custom controls by default
+            if (customDurationControls) {
+                customDurationControls.style.display = 'none';
+            }
+        }
+
         // If template ID provided, select it and auto-fill
         if (templateId) {
             const templateSelect = document.getElementById('appointment-template');
@@ -1309,17 +1396,16 @@ class GPSAdminApp {
         const dateStr = document.getElementById('appointment-date').value;
         const timeStr = document.getElementById('appointment-time').value;
         
-        // Check if custom duration input is visible and has a value
+        // Always use custom duration input as it's synced with dropdown
         const customDurationInput = document.getElementById('template-duration-input');
-        const customDurationControls = document.getElementById('template-duration-controls');
+        const durationSelect = document.getElementById('appointment-duration');
         let duration;
         
-        if (customDurationControls && customDurationControls.style.display !== 'none' && customDurationInput?.value) {
-            // Use custom duration from template adjustment
+        // Use custom input if it has a value, otherwise fall back to dropdown
+        if (customDurationInput && customDurationInput.value) {
             duration = parseInt(customDurationInput.value);
         } else {
-            // Use regular duration dropdown
-            duration = parseInt(document.getElementById('appointment-duration').value);
+            duration = parseInt(durationSelect.value);
         }
         
         const location = document.getElementById('appointment-location').value.trim();

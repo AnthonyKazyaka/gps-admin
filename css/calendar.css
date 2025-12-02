@@ -794,6 +794,11 @@
 
 .template-actions.manage-mode {
     display: block;
+    position: absolute;
+    bottom: var(--spacing-xl);
+    left: var(--spacing-xl);
+    right: var(--spacing-xl);
+    margin-top: 0;
 }
 
 .template-actions.manage-mode .btn {
@@ -805,6 +810,7 @@
     position: relative;
     cursor: default;
     border-color: var(--danger-300);
+    padding-bottom: calc(var(--spacing-xl) * 3 + 40px); /* Make room for anchored button */
 }
 
 .template-card.manage-mode:hover {
