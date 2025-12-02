@@ -153,10 +153,10 @@ class RenderEngine {
 
         subtitleElement.innerHTML = `
             <div class="day-details-stats">
-                <span class="day-details-stat">📅 ${workEventCount} appointment${workEventCount !== 1 ? 's' : ''}</span>
-                <span class="day-details-stat">⏱️ ${workHours} work</span>
-                <span class="day-details-stat">🚗 ${travelHours} travel</span>
-                <span class="day-details-stat total">📊 ${totalHours} total</span>
+                ${HtmlHelpers.dayDetailsStat({ icon: '📅', value: `${workEventCount} appointment${workEventCount !== 1 ? 's' : ''}` })}
+                ${HtmlHelpers.dayDetailsStat({ icon: '⏱️', value: `${workHours} work` })}
+                ${HtmlHelpers.dayDetailsStat({ icon: '🚗', value: `${travelHours} travel` })}
+                ${HtmlHelpers.dayDetailsStat({ icon: '📊', value: `${totalHours} total`, isTotal: true })}
             </div>
             <div class="day-details-badges">
                 ${housesitLabel ? housesitLabel : ''}
@@ -202,14 +202,7 @@ class RenderEngine {
             const isOvernightEnding = this.eventProcessor.isOvernightEndDate(event, targetDate);
             
             // Work event badge with housesit ending indicator
-            let workBadge = '';
-            if (isWorkEvent) {
-                if (isOvernightEnding) {
-                    workBadge = '<span class="work-event-badge" style="background-color: #A78BFA;">🏠 Housesit Ends</span>';
-                } else {
-                    workBadge = '<span class="work-event-badge">💼 Work</span>';
-                }
-            }
+            const workBadge = HtmlHelpers.workEventBadge({ isWork: isWorkEvent, isOvernightEnding });
             const workClass = isWorkEvent ? 'work-event' : 'personal-event';
 
             html += `
@@ -367,39 +360,39 @@ class RenderEngine {
 
         container.innerHTML = `
             <div class="insights-grid">
-                <div class="insight-card">
-                    <div class="insight-label">Total Appointments</div>
-                    <div class="insight-value">${totalAppointments}</div>
-                    <div class="insight-sublabel">${daysWithAppointments} working days</div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-label">Work Hours</div>
-                    <div class="insight-value">${workHours}h ${workMinutes}m</div>
-                    <div class="insight-sublabel">Appointment time</div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-label">Travel Hours</div>
-                    <div class="insight-value">${travelHours}h ${travelMins}m</div>
-                    <div class="insight-sublabel">To/from/between appointments</div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-label">Total Hours</div>
-                    <div class="insight-value">${totalHours}h ${totalMinutes}m</div>
-                    <div class="insight-sublabel">${avgHoursPerDay} avg per day</div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-label">Busiest Day</div>
-                    <div class="insight-value">${busiestDayName}</div>
-                    <div class="insight-sublabel">${busiestHours} total • ${busiestDay.appointments} appointments</div>
-                </div>
-                <div class="insight-card">
-                    <div class="insight-label">Weekly Workload</div>
-                    <div class="insight-value" style="color: ${workloadColor};">${workloadStatus}</div>
-                    <div class="insight-sublabel">${Utils.formatHours(avgWeeklyHours)} / ${Utils.formatHours(state.settings.thresholds.weekly.comfortable)} capacity</div>
-                    <div class="progress-bar" style="margin-top: 8px;">
-                        <div class="progress-fill" style="width: ${Math.min((avgWeeklyHours / state.settings.thresholds.weekly.comfortable * 100), 100)}%; background: ${workloadColor};"></div>
-                    </div>
-                </div>
+                ${HtmlHelpers.insightCard({
+                    label: 'Total Appointments',
+                    value: totalAppointments,
+                    sublabel: `${daysWithAppointments} working days`
+                })}
+                ${HtmlHelpers.insightCard({
+                    label: 'Work Hours',
+                    value: `${workHours}h ${workMinutes}m`,
+                    sublabel: 'Appointment time'
+                })}
+                ${HtmlHelpers.insightCard({
+                    label: 'Travel Hours',
+                    value: `${travelHours}h ${travelMins}m`,
+                    sublabel: 'To/from/between appointments'
+                })}
+                ${HtmlHelpers.insightCard({
+                    label: 'Total Hours',
+                    value: `${totalHours}h ${totalMinutes}m`,
+                    sublabel: `${avgHoursPerDay} avg per day`
+                })}
+                ${HtmlHelpers.insightCard({
+                    label: 'Busiest Day',
+                    value: busiestDayName,
+                    sublabel: `${busiestHours} total • ${busiestDay.appointments} appointments`
+                })}
+                ${HtmlHelpers.insightCard({
+                    label: 'Weekly Workload',
+                    value: workloadStatus,
+                    valueStyle: `color: ${workloadColor};`,
+                    sublabel: `${Utils.formatHours(avgWeeklyHours)} / ${Utils.formatHours(state.settings.thresholds.weekly.comfortable)} capacity`,
+                    progressPercent: (avgWeeklyHours / state.settings.thresholds.weekly.comfortable * 100),
+                    progressColor: workloadColor
+                })}
             </div>
         `;
     }
@@ -444,14 +437,11 @@ class RenderEngine {
         // Check for burnout risk
         const burnoutDays = nextWeek.filter(day => day.hours >= state.settings.thresholds.daily.burnout);
         if (burnoutDays.length > 0) {
-            html += `
-                <div class="recommendation-card danger">
-                    <div class="recommendation-icon">⚠️</div>
-                    <div class="recommendation-content">
-                        <p><strong>Burnout Risk Detected:</strong> You have ${burnoutDays.length} day(s) this week with ${state.settings.thresholds.daily.burnout}+ hours. Consider declining new bookings or rescheduling if possible.</p>
-                    </div>
-                </div>
-            `;
+            html += HtmlHelpers.recommendationCard({
+                icon: '⚠️',
+                content: `<p><strong>Burnout Risk Detected:</strong> You have ${burnoutDays.length} day(s) this week with ${state.settings.thresholds.daily.burnout}+ hours. Consider declining new bookings or rescheduling if possible.</p>`,
+                severity: 'danger'
+            });
         }
 
         // Check for high workload
@@ -459,27 +449,20 @@ class RenderEngine {
             day.hours >= state.settings.thresholds.daily.high && day.hours < state.settings.thresholds.daily.burnout
         );
         if (highWorkloadDays.length > 0 && burnoutDays.length === 0) {
-            html += `
-                <div class="recommendation-card warning">
-                    <div class="recommendation-icon">📊</div>
-                    <div class="recommendation-content">
-                        <p><strong>High Workload:</strong> You have ${highWorkloadDays.length} day(s) this week with high workload. Be selective with new bookings.</p>
-                    </div>
-                </div>
-            `;
+            html += HtmlHelpers.recommendationCard({
+                icon: '📊',
+                content: `<p><strong>High Workload:</strong> You have ${highWorkloadDays.length} day(s) this week with high workload. Be selective with new bookings.</p>`,
+                severity: 'warning'
+            });
         }
 
         // Check for good capacity
         const comfortableDays = nextWeek.filter(day => day.hours < state.settings.thresholds.daily.comfortable);
         if (comfortableDays.length >= 4) {
-            html += `
-                <div class="recommendation-card">
-                    <div class="recommendation-icon">✅</div>
-                    <div class="recommendation-content">
-                        <p><strong>Good Capacity:</strong> You have ${comfortableDays.length} day(s) with comfortable workload this week. Good time to take on new clients!</p>
-                    </div>
-                </div>
-            `;
+            html += HtmlHelpers.recommendationCard({
+                icon: '✅',
+                content: `<p><strong>Good Capacity:</strong> You have ${comfortableDays.length} day(s) with comfortable workload this week. Good time to take on new clients!</p>`
+            });
         }
 
         recommendations.innerHTML = html;
@@ -818,26 +801,30 @@ class RenderEngine {
         content.innerHTML = `
             <!-- Overview Cards -->
             <div class="analytics-overview">
-                <div class="stat-card">
-                    <div class="stat-label">Total Appointments</div>
-                    <div class="stat-value" id="analytics-total-appointments">0</div>
-                    <div id="analytics-total-appointments-comparison" class="stat-comparison"></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Total Hours</div>
-                    <div class="stat-value" id="analytics-total-hours">0h</div>
-                    <div id="analytics-total-hours-comparison" class="stat-comparison"></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Avg Daily Workload</div>
-                    <div class="stat-value" id="analytics-avg-daily">0h</div>
-                    <div id="analytics-avg-daily-comparison" class="stat-comparison"></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Busiest Day</div>
-                    <div class="stat-value" id="analytics-busiest-day">-</div>
-                    <div id="analytics-busiest-day-comparison" class="stat-comparison"></div>
-                </div>
+                ${HtmlHelpers.statCard({
+                    label: 'Total Appointments',
+                    valueId: 'analytics-total-appointments',
+                    defaultValue: '0',
+                    comparisonId: 'analytics-total-appointments-comparison'
+                })}
+                ${HtmlHelpers.statCard({
+                    label: 'Total Hours',
+                    valueId: 'analytics-total-hours',
+                    defaultValue: '0h',
+                    comparisonId: 'analytics-total-hours-comparison'
+                })}
+                ${HtmlHelpers.statCard({
+                    label: 'Avg Daily Workload',
+                    valueId: 'analytics-avg-daily',
+                    defaultValue: '0h',
+                    comparisonId: 'analytics-avg-daily-comparison'
+                })}
+                ${HtmlHelpers.statCard({
+                    label: 'Busiest Day',
+                    valueId: 'analytics-busiest-day',
+                    defaultValue: '-',
+                    comparisonId: 'analytics-busiest-day-comparison'
+                })}
             </div>
 
             <!-- Charts Grid -->

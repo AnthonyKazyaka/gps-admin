@@ -270,3 +270,115 @@ class Utils {
         };
     }
 }
+
+/**
+ * HTML Helper functions for generating common UI components
+ * These functions generate consistent HTML markup for cards, badges, and stats
+ */
+class HtmlHelpers {
+    /**
+     * Generate an insight card component
+     * @param {Object} options - Card options
+     * @param {string} options.label - Card label/title
+     * @param {string} options.value - Main value to display
+     * @param {string} [options.sublabel] - Optional sublabel text
+     * @param {string} [options.valueStyle] - Optional inline style for value
+     * @param {string} [options.type] - Optional card type class (e.g., 'warning')
+     * @param {number} [options.progressPercent] - Optional progress bar percentage
+     * @param {string} [options.progressColor] - Progress bar color
+     * @returns {string} HTML string
+     */
+    static insightCard({ label, value, sublabel, valueStyle, type, progressPercent, progressColor }) {
+        const typeClass = type ? ` ${type}` : '';
+        const valueStyleAttr = valueStyle ? ` style="${valueStyle}"` : '';
+        
+        let sublabelHtml = '';
+        if (sublabel) {
+            sublabelHtml = `\n                    <div class="insight-sublabel">${sublabel}</div>`;
+        }
+        
+        let progressHtml = '';
+        if (progressPercent !== undefined) {
+            const cappedPercent = Math.min(progressPercent, 100);
+            progressHtml = `
+                    <div class="progress-bar" style="margin-top: 8px;">
+                        <div class="progress-fill" style="width: ${cappedPercent}%; background: ${progressColor};"></div>
+                    </div>`;
+        }
+        
+        return `<div class="insight-card${typeClass}">
+                    <div class="insight-label">${label}</div>
+                    <div class="insight-value"${valueStyleAttr}>${value}</div>${sublabelHtml}${progressHtml}
+                </div>`;
+    }
+
+    /**
+     * Generate a stat card component (used in analytics)
+     * @param {Object} options - Card options
+     * @param {string} options.label - Card label
+     * @param {string} options.valueId - ID for the value element
+     * @param {string} options.defaultValue - Default value to display
+     * @param {string} [options.comparisonId] - Optional ID for comparison element
+     * @returns {string} HTML string
+     */
+    static statCard({ label, valueId, defaultValue, comparisonId }) {
+        let comparisonHtml = '';
+        if (comparisonId) {
+            comparisonHtml = `\n                    <div id="${comparisonId}" class="stat-comparison"></div>`;
+        }
+        
+        return `<div class="stat-card">
+                    <div class="stat-label">${label}</div>
+                    <div class="stat-value" id="${valueId}">${defaultValue}</div>${comparisonHtml}
+                </div>`;
+    }
+
+    /**
+     * Generate a recommendation card component
+     * @param {Object} options - Card options
+     * @param {string} options.icon - Emoji/icon to display
+     * @param {string} options.content - HTML content for the card
+     * @param {string} [options.severity] - Optional severity class ('danger', 'warning')
+     * @returns {string} HTML string
+     */
+    static recommendationCard({ icon, content, severity }) {
+        const severityClass = severity ? ` ${severity}` : '';
+        
+        return `<div class="recommendation-card${severityClass}">
+                    <div class="recommendation-icon">${icon}</div>
+                    <div class="recommendation-content">${content}</div>
+                </div>`;
+    }
+
+    /**
+     * Generate a work event badge
+     * @param {Object} options - Badge options
+     * @param {boolean} options.isWork - Whether this is a work event
+     * @param {boolean} [options.isOvernightEnding] - Whether this is an overnight stay ending
+     * @returns {string} HTML string or empty string
+     */
+    static workEventBadge({ isWork, isOvernightEnding }) {
+        if (!isWork) {
+            return '';
+        }
+        
+        if (isOvernightEnding) {
+            return '<span class="work-event-badge" style="background-color: #A78BFA;">🏠 Housesit Ends</span>';
+        }
+        
+        return '<span class="work-event-badge">💼 Work</span>';
+    }
+
+    /**
+     * Generate a day details stat span
+     * @param {Object} options - Stat options
+     * @param {string} options.icon - Emoji/icon to display
+     * @param {string} options.value - Value to display
+     * @param {boolean} [options.isTotal] - Whether this is a total stat
+     * @returns {string} HTML string
+     */
+    static dayDetailsStat({ icon, value, isTotal }) {
+        const totalClass = isTotal ? ' total' : '';
+        return `<span class="day-details-stat${totalClass}">${icon} ${value}</span>`;
+    }
+}
