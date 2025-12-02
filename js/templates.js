@@ -392,6 +392,145 @@ class TemplatesManager {
     }
 
     /**
+     * Generate multiple events for a multi-day booking
+     * @param {Object} config - Configuration for the multi-event booking
+     * @returns {Array} Array of event objects to be created
+     */
+    generateMultiDayEvents(config) {
+        const {
+            clientName,
+            location,
+            startDate,
+            endDate,
+            bookingType, // 'daily-visits' or 'overnight-stay'
+            visits, // Array of { templateId, time, duration } for daily visits
+            weekendVisits, // Array of { templateId, time, duration } for weekend visits (optional)
+            overnightConfig, // { templateId, arrivalTime, departureTime }
+            dropinConfig, // { enabled, visits: [...], skipFirstDay, skipLastDay }
+        } = config;
+
+        const events = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        // Calculate number of days
+        const dayCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+        if (bookingType === 'daily-visits') {
+            // Generate daily visits for each day
+            for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
+                const currentDate = new Date(start);
+                currentDate.setDate(start.getDate() + dayOffset);
+                
+                const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6; // 0 is Sunday, 6 is Saturday
+                const currentVisits = (isWeekend && weekendVisits && weekendVisits.length > 0) ? weekendVisits : visits;
+
+                currentVisits.forEach((visit, visitIndex) => {
+                    const template = visit.templateId ? this.getTemplateById(visit.templateId) : null;
+                    const duration = visit.duration || (template ? template.duration : 30);
+                    const [hours, minutes] = visit.time.split(':').map(Number);
+
+                    const eventStart = new Date(currentDate);
+                    eventStart.setHours(hours, minutes, 0, 0);
+
+                    const eventEnd = new Date(eventStart);
+                    eventEnd.setMinutes(eventEnd.getMinutes() + duration);
+
+                    const suffix = duration;
+                    const title = `${clientName} ${suffix}`;
+
+                    events.push({
+                        id: this.generateId(),
+                        title: title,
+                        start: eventStart,
+                        end: eventEnd,
+                        location: location,
+                        type: template?.type || 'dropin',
+                        templateId: visit.templateId || null,
+                        isLocal: true,
+                        ignored: false,
+                        isWorkEvent: true,
+                    });
+                });
+            }
+        } else if (bookingType === 'overnight-stay') {
+            // Generate overnight events (one spanning event)
+            if (overnightConfig) {
+                const template = overnightConfig.templateId ? this.getTemplateById(overnightConfig.templateId) : null;
+                const [arrHours, arrMinutes] = overnightConfig.arrivalTime.split(':').map(Number);
+                const [depHours, depMinutes] = overnightConfig.departureTime.split(':').map(Number);
+
+                // First night arrival
+                const overnightStart = new Date(start);
+                overnightStart.setHours(arrHours, arrMinutes, 0, 0);
+
+                // Last day departure
+                const overnightEnd = new Date(end);
+                overnightEnd.setHours(depHours, depMinutes, 0, 0);
+
+                events.push({
+                    id: this.generateId(),
+                    title: `${clientName} HS`,
+                    start: overnightStart,
+                    end: overnightEnd,
+                    location: location,
+                    type: 'overnight',
+                    templateId: overnightConfig.templateId || null,
+                    isLocal: true,
+                    ignored: false,
+                    isWorkEvent: true,
+                });
+            }
+
+            // Generate drop-in visits if enabled
+            if (dropinConfig && dropinConfig.enabled && dropinConfig.visits && dropinConfig.visits.length > 0) {
+                for (let dayOffset = 0; dayOffset < dayCount; dayOffset++) {
+                    // Skip first day if configured
+                    if (dayOffset === 0 && dropinConfig.skipFirstDay) continue;
+                    // Skip last day if configured
+                    if (dayOffset === dayCount - 1 && dropinConfig.skipLastDay) continue;
+
+                    const currentDate = new Date(start);
+                    currentDate.setDate(start.getDate() + dayOffset);
+
+                    dropinConfig.visits.forEach((visit, visitIndex) => {
+                        const template = visit.templateId ? this.getTemplateById(visit.templateId) : null;
+                        const duration = visit.duration || (template ? template.duration : 30);
+                        const [hours, minutes] = visit.time.split(':').map(Number);
+
+                        const eventStart = new Date(currentDate);
+                        eventStart.setHours(hours, minutes, 0, 0);
+
+                        const eventEnd = new Date(eventStart);
+                        eventEnd.setMinutes(eventEnd.getMinutes() + duration);
+
+                        const suffix = duration;
+                        const title = `${clientName} ${suffix}`;
+
+                        events.push({
+                            id: this.generateId(),
+                            title: title,
+                            start: eventStart,
+                            end: eventEnd,
+                            location: location,
+                            type: template?.type || 'dropin',
+                            templateId: visit.templateId || null,
+                            isLocal: true,
+                            ignored: false,
+                            isWorkEvent: true,
+                        });
+                    });
+                }
+            }
+        }
+
+        // Sort events by start time
+        events.sort((a, b) => a.start - b.start);
+
+        return events;
+    }
+
+    /**
      * Get template types
      */
     getTemplateTypes() {

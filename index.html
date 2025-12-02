@@ -259,6 +259,19 @@
                             </svg>
                             Export List
                         </button>
+                        <button id="multi-event-btn" class="btn btn-secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                <line x1="9" y1="14" x2="9" y2="18"></line>
+                                <line x1="7" y1="16" x2="11" y2="16"></line>
+                                <line x1="15" y1="14" x2="15" y2="18"></line>
+                                <line x1="13" y1="16" x2="17" y2="16"></line>
+                            </svg>
+                            Schedule Stay
+                        </button>
                         <button id="new-appointment-btn" class="btn btn-primary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -822,6 +835,269 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary js-modal-close">Cancel</button>
                 <button id="save-template" class="btn btn-primary">Save Template</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Event Scheduling Modal -->
+    <div id="multi-event-modal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-content-wide">
+            <div class="modal-header">
+                <div>
+                    <h3 id="multi-event-modal-title">Schedule Multiple Events</h3>
+                    <p class="modal-subtitle">Create recurring visits or multi-day stays</p>
+                </div>
+                <button class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Wizard Progress -->
+                <div class="wizard-progress">
+                    <div class="wizard-step active" data-step="1">
+                        <div class="wizard-step-number">1</div>
+                        <div class="wizard-step-label">Basics</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="2">
+                        <div class="wizard-step-number">2</div>
+                        <div class="wizard-step-label">Schedule</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="3">
+                        <div class="wizard-step-number">3</div>
+                        <div class="wizard-step-label">Review</div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Basic Info & Booking Type -->
+                <div id="multi-event-step-1" class="wizard-content active">
+                    <h4>📋 Booking Details</h4>
+                    <p class="text-muted">Enter the client information and select what type of booking this is.</p>
+
+                    <div class="form-group">
+                        <label for="multi-client-name">Client/Pet Name</label>
+                        <input type="text" id="multi-client-name" class="input" placeholder="e.g., Fluffy" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="multi-start-date">Start Date</label>
+                            <input type="date" id="multi-start-date" class="input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="multi-end-date">End Date</label>
+                            <input type="date" id="multi-end-date" class="input" required>
+                        </div>
+                    </div>
+
+                    <div id="multi-date-summary" class="date-summary" style="display: none;">
+                        <span class="date-summary-icon">📅</span>
+                        <span id="multi-days-count">0 days</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="multi-location">Location</label>
+                        <input type="text" id="multi-location" class="input" placeholder="Client's address">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Booking Type</label>
+                        <div class="booking-type-options">
+                            <label class="booking-type-option">
+                                <input type="radio" name="booking-type" value="daily-visits" checked>
+                                <div class="booking-type-card">
+                                    <span class="booking-type-icon">🏃</span>
+                                    <span class="booking-type-label">Daily Visits</span>
+                                    <span class="booking-type-desc">Same visit(s) each day</span>
+                                </div>
+                            </label>
+                            <label class="booking-type-option">
+                                <input type="radio" name="booking-type" value="overnight-stay">
+                                <div class="booking-type-card">
+                                    <span class="booking-type-icon">🌙</span>
+                                    <span class="booking-type-label">Overnight Stay</span>
+                                    <span class="booking-type-desc">With optional daily drop-ins</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Schedule Configuration -->
+                <div id="multi-event-step-2" class="wizard-content">
+                    <!-- Daily Visits Configuration -->
+                    <div id="daily-visits-config">
+                        <h4>🏃 Daily Visit Schedule</h4>
+                        <p class="text-muted">Configure the visits that will repeat each day.</p>
+
+                        <div class="visit-slots-header">
+                            <label>Visit Times (Weekdays)</label>
+                            <button type="button" id="add-visit-slot" class="btn btn-sm btn-secondary">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Add Visit
+                            </button>
+                        </div>
+
+                        <div id="visit-slots-container" class="visit-slots-container">
+                            <!-- Visit time slots will be rendered here -->
+                        </div>
+
+                        <div class="form-group" style="margin-top: var(--spacing-md); border-top: 1px solid var(--gray-200); padding-top: var(--spacing-md);">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="multi-separate-weekend">
+                                <span>Different schedule for weekends</span>
+                            </label>
+                        </div>
+
+                        <div id="weekend-visits-config" style="display: none;">
+                            <div class="visit-slots-header">
+                                <label>Visit Times (Weekends)</label>
+                                <button type="button" id="add-weekend-visit-slot" class="btn btn-sm btn-secondary">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                    Add Visit
+                                </button>
+                            </div>
+
+                            <div id="weekend-visit-slots-container" class="visit-slots-container">
+                                <!-- Weekend visit time slots will be rendered here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overnight Stay Configuration -->
+                    <div id="overnight-stay-config" style="display: none;">
+                        <h4>🌙 Overnight Stay Settings</h4>
+                        <p class="text-muted">Configure the overnight stay and any daily drop-ins.</p>
+
+                        <div class="config-section">
+                            <h5>Overnight Schedule</h5>
+                            <div class="form-group">
+                                <label for="multi-overnight-template">Overnight Template</label>
+                                <select id="multi-overnight-template" class="select">
+                                    <option value="">-- Select Template --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="multi-overnight-start">Evening Arrival</label>
+                                    <input type="time" id="multi-overnight-start" class="input" value="18:00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="multi-overnight-end">Morning Departure</label>
+                                    <input type="time" id="multi-overnight-end" class="input" value="08:00">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="multi-enable-dropins" checked>
+                                    <span>Include daily drop-in visits</span>
+                                </label>
+                            </div>
+
+                            <div id="overnight-dropins-config">
+                                <div class="visit-slots-header">
+                                    <label>Drop-in Times</label>
+                                    <button type="button" id="add-overnight-dropin-slot" class="btn btn-sm btn-secondary">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                        Add Drop-in
+                                    </button>
+                                </div>
+
+                                <div id="overnight-dropin-slots-container" class="visit-slots-container">
+                                    <!-- Drop-in time slots will be rendered here -->
+                                </div>
+
+                                <div class="form-group" style="margin-top: var(--spacing-md);">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="multi-skip-first-day">
+                                        <span>Skip drop-ins on first day (arrival day)</span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="multi-skip-last-day">
+                                        <span>Skip drop-ins on last day (departure day)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review & Confirm -->
+                <div id="multi-event-step-3" class="wizard-content">
+                    <h4>📋 Review Events</h4>
+                    <p class="text-muted">Review all events that will be created.</p>
+
+                    <div id="multi-event-summary" class="multi-event-summary">
+                        <div class="summary-header">
+                            <div class="summary-stat">
+                                <span class="summary-stat-value" id="summary-total-events">0</span>
+                                <span class="summary-stat-label">Total Events</span>
+                            </div>
+                            <div class="summary-stat">
+                                <span class="summary-stat-value" id="summary-total-hours">0h</span>
+                                <span class="summary-stat-label">Total Hours</span>
+                            </div>
+                            <div class="summary-stat">
+                                <span class="summary-stat-value" id="summary-date-range">-</span>
+                                <span class="summary-stat-label">Date Range</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="multi-event-conflicts" class="alert alert-warning" style="display: none; margin-bottom: var(--spacing-md);">
+                        <strong>⚠️ Schedule Conflicts Detected</strong>
+                        <p>Some events overlap with existing appointments. Please review the schedule below.</p>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: var(--spacing-sm);">
+                        <label class="checkbox-label" style="font-size: 0.875rem;">
+                            <input type="checkbox" id="multi-preview-show-all" checked>
+                            <span>Show non-work events</span>
+                        </label>
+                    </div>
+
+                    <div id="multi-event-preview" class="multi-event-preview">
+                        <!-- Event preview cards will be rendered here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="multi-event-prev" class="btn btn-secondary" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                    Back
+                </button>
+                <div style="flex: 1;"></div>
+                <button class="btn btn-secondary js-modal-close">Cancel</button>
+                <button id="multi-event-next" class="btn btn-primary">
+                    Next
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+                <button id="multi-event-create" class="btn btn-primary" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Create Events
+                </button>
             </div>
         </div>
     </div>

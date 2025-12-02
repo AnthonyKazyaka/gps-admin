@@ -38,6 +38,10 @@ class GPSAdminApp {
 
         this.selectedDate = null;
         
+        // Multi-event scheduling state
+        this.multiEventCurrentStep = 1;
+        this.pendingMultiEvents = null;
+        
         this.initMockData();
     }
 
@@ -387,6 +391,17 @@ class GPSAdminApp {
                 this.downloadExportFile();
             });
         }
+
+        // Multi-event scheduling button
+        const multiEventBtn = document.getElementById('multi-event-btn');
+        if (multiEventBtn) {
+            multiEventBtn.addEventListener('click', () => {
+                this.showMultiEventModal();
+            });
+        }
+
+        // Multi-event modal controls
+        this.setupMultiEventModalControls();
 
         // Setup calendar controls (only once)
         this.setupCalendarControls();
@@ -1460,6 +1475,992 @@ class GPSAdminApp {
         this.renderer.updateWorkloadIndicator(this.state);
 
         Utils.showToast(`✅ Appointment "${title}" created!`, 'success');
+    }
+
+    // =========================================================================
+    // Multi-Event Scheduling
+    // =========================================================================
+
+    /**
+     * Setup event listeners for multi-event modal
+     */
+    setupMultiEventModalControls() {
+        // Date change handlers to update summary
+        const startDateInput = document.getElementById('multi-start-date');
+        const endDateInput = document.getElementById('multi-end-date');
+        
+        if (startDateInput) {
+            startDateInput.addEventListener('change', () => this.updateMultiEventDateSummary());
+        }
+        if (endDateInput) {
+            endDateInput.addEventListener('change', () => this.updateMultiEventDateSummary());
+        }
+
+        // Booking type change handler
+        document.querySelectorAll('input[name="booking-type"]').forEach(radio => {
+            radio.addEventListener('change', () => this.handleBookingTypeChange());
+        });
+
+        // Next/Previous/Create buttons
+        const nextBtn = document.getElementById('multi-event-next');
+        const prevBtn = document.getElementById('multi-event-prev');
+        const createBtn = document.getElementById('multi-event-create');
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => this.multiEventNextStep());
+        }
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => this.multiEventPrevStep());
+        }
+        if (createBtn) {
+            createBtn.addEventListener('click', () => this.createMultiEvents());
+        }
+
+        // Add visit slot buttons
+        const addVisitBtn = document.getElementById('add-visit-slot');
+        const addOvernightDropinBtn = document.getElementById('add-overnight-dropin-slot');
+
+        if (addVisitBtn) {
+            addVisitBtn.addEventListener('click', () => this.addVisitSlot('visit-slots-container'));
+        }
+        if (addOvernightDropinBtn) {
+            addOvernightDropinBtn.addEventListener('click', () => this.addVisitSlot('overnight-dropin-slots-container'));
+        }
+
+        // Add weekend visit slot button
+        const addWeekendVisitBtn = document.getElementById('add-weekend-visit-slot');
+        if (addWeekendVisitBtn) {
+            addWeekendVisitBtn.addEventListener('click', () => this.addVisitSlot('weekend-visit-slots-container'));
+        }
+
+        // Weekend schedule toggle
+        const separateWeekendToggle = document.getElementById('multi-separate-weekend');
+        if (separateWeekendToggle) {
+            separateWeekendToggle.addEventListener('change', (e) => {
+                const weekendConfig = document.getElementById('weekend-visits-config');
+                if (weekendConfig) {
+                    weekendConfig.style.display = e.target.checked ? 'block' : 'none';
+                    
+                    // If showing for the first time and empty, add a slot
+                    if (e.target.checked && document.getElementById('weekend-visit-slots-container').children.length === 0) {
+                        this.addVisitSlot('weekend-visit-slots-container');
+                    }
+                }
+            });
+        }
+
+        // Enable/disable dropins checkbox
+        const enableDropins = document.getElementById('multi-enable-dropins');
+        if (enableDropins) {
+            enableDropins.addEventListener('change', (e) => {
+                const dropinConfig = document.getElementById('overnight-dropins-config');
+                if (dropinConfig) {
+                    dropinConfig.style.display = e.target.checked ? 'block' : 'none';
+                }
+            });
+        }
+
+        // Preview toggle for non-work events
+        const previewShowAll = document.getElementById('multi-preview-show-all');
+        if (previewShowAll) {
+            previewShowAll.addEventListener('change', () => {
+                this.renderMultiEventTimeline();
+            });
+        }
+    }
+
+    /**
+     * Show multi-event scheduling modal
+     */
+    showMultiEventModal() {
+        // Reset wizard to step 1
+        this.multiEventCurrentStep = 1;
+        this.updateMultiEventWizardUI();
+
+        // Reset form
+        document.getElementById('multi-client-name').value = '';
+        document.getElementById('multi-location').value = '';
+        
+        // Set default dates (today and tomorrow)
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        
+        document.getElementById('multi-start-date').value = today.toISOString().split('T')[0];
+        document.getElementById('multi-end-date').value = tomorrow.toISOString().split('T')[0];
+
+        // Reset booking type to daily visits
+        const dailyVisitsRadio = document.querySelector('input[name="booking-type"][value="daily-visits"]');
+        if (dailyVisitsRadio) {
+            dailyVisitsRadio.checked = true;
+        }
+
+        // Populate template dropdowns
+        this.populateMultiEventTemplates();
+
+        // Initialize with one default visit slot
+        this.resetVisitSlots('visit-slots-container');
+        this.resetVisitSlots('overnight-dropin-slots-container');
+        this.resetVisitSlots('weekend-visit-slots-container');
+
+        // Reset weekend toggle
+        const separateWeekendToggle = document.getElementById('multi-separate-weekend');
+        if (separateWeekendToggle) {
+            separateWeekendToggle.checked = false;
+            const weekendConfig = document.getElementById('weekend-visits-config');
+            if (weekendConfig) weekendConfig.style.display = 'none';
+        }
+
+        // Update date summary
+        this.updateMultiEventDateSummary();
+
+        // Show daily visits config by default
+        this.handleBookingTypeChange();
+
+        Utils.showModal('multi-event-modal');
+    }
+
+    /**
+     * Populate template dropdowns in multi-event modal
+     */
+    populateMultiEventTemplates() {
+        if (!this.templatesManager) return;
+
+        const templates = this.templatesManager.getAllTemplates();
+        
+        // Populate overnight template dropdown
+        const overnightSelect = document.getElementById('multi-overnight-template');
+        if (overnightSelect) {
+            overnightSelect.innerHTML = '<option value="">-- Select Template --</option>';
+            templates.filter(t => t.type === 'overnight').forEach(t => {
+                overnightSelect.innerHTML += `<option value="${t.id}">${t.icon} ${t.name}</option>`;
+            });
+        }
+    }
+
+    /**
+     * Get template options HTML for visit slot dropdowns
+     */
+    getTemplateOptionsHTML() {
+        if (!this.templatesManager) return '<option value="">No template</option>';
+
+        const templates = this.templatesManager.getAllTemplates();
+        let html = '<option value="">-- Select --</option>';
+        
+        // Group by type
+        const dropins = templates.filter(t => t.type === 'dropin');
+        const walks = templates.filter(t => t.type === 'walk');
+        const others = templates.filter(t => !['dropin', 'walk', 'overnight'].includes(t.type));
+
+        if (dropins.length > 0) {
+            html += '<optgroup label="Drop-in Visits">';
+            dropins.forEach(t => {
+                html += `<option value="${t.id}" data-duration="${t.duration}">${t.icon} ${t.name} (${t.duration}min)</option>`;
+            });
+            html += '</optgroup>';
+        }
+
+        if (walks.length > 0) {
+            html += '<optgroup label="Dog Walks">';
+            walks.forEach(t => {
+                html += `<option value="${t.id}" data-duration="${t.duration}">${t.icon} ${t.name} (${t.duration}min)</option>`;
+            });
+            html += '</optgroup>';
+        }
+
+        if (others.length > 0) {
+            html += '<optgroup label="Other">';
+            others.forEach(t => {
+                html += `<option value="${t.id}" data-duration="${t.duration}">${t.icon} ${t.name} (${t.duration}min)</option>`;
+            });
+            html += '</optgroup>';
+        }
+
+        return html;
+    }
+
+    /**
+     * Reset visit slots container with one default slot
+     */
+    resetVisitSlots(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = '';
+        this.addVisitSlot(containerId);
+    }
+
+    /**
+     * Add a visit time slot
+     */
+    addVisitSlot(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const slotCount = container.querySelectorAll('.visit-slot').length;
+        const slotNumber = slotCount + 1;
+
+        const slotHTML = `
+            <div class="visit-slot" data-slot-id="${slotNumber}">
+                <div class="visit-slot-number">${slotNumber}</div>
+                <div class="visit-slot-template">
+                    <select class="select slot-template-select">
+                        ${this.getTemplateOptionsHTML()}
+                    </select>
+                </div>
+                <div class="visit-slot-time">
+                    <input type="time" class="input slot-time-input" value="12:00">
+                </div>
+                <div class="visit-slot-duration">
+                    <select class="select slot-duration-select">
+                        <option value="15">15 min</option>
+                        <option value="20">20 min</option>
+                        <option value="30" selected>30 min</option>
+                        <option value="45">45 min</option>
+                        <option value="60">60 min</option>
+                    </select>
+                </div>
+                <button type="button" class="visit-slot-remove" onclick="window.gpsApp.removeVisitSlot(this)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', slotHTML);
+
+        // Add template change handler to update duration
+        const newSlot = container.lastElementChild;
+        const templateSelect = newSlot.querySelector('.slot-template-select');
+        const durationSelect = newSlot.querySelector('.slot-duration-select');
+
+        templateSelect.addEventListener('change', (e) => {
+            const selectedOption = e.target.selectedOptions[0];
+            if (selectedOption && selectedOption.dataset.duration) {
+                const duration = selectedOption.dataset.duration;
+                // Try to match duration in dropdown
+                const matchingOption = Array.from(durationSelect.options).find(opt => opt.value === duration);
+                if (matchingOption) {
+                    durationSelect.value = duration;
+                }
+            }
+        });
+    }
+
+    /**
+     * Remove a visit time slot
+     */
+    removeVisitSlot(button) {
+        const slot = button.closest('.visit-slot');
+        const container = slot.parentElement;
+        
+        // Don't remove if it's the last slot
+        if (container.querySelectorAll('.visit-slot').length <= 1) {
+            Utils.showToast('At least one visit is required', 'warning');
+            return;
+        }
+
+        slot.remove();
+
+        // Renumber remaining slots
+        container.querySelectorAll('.visit-slot').forEach((slot, index) => {
+            const numberEl = slot.querySelector('.visit-slot-number');
+            if (numberEl) {
+                numberEl.textContent = index + 1;
+            }
+        });
+    }
+
+    /**
+     * Update date summary display
+     */
+    updateMultiEventDateSummary() {
+        const startDate = document.getElementById('multi-start-date').value;
+        const endDate = document.getElementById('multi-end-date').value;
+        const summaryEl = document.getElementById('multi-date-summary');
+        const daysCountEl = document.getElementById('multi-days-count');
+
+        if (!startDate || !endDate) {
+            summaryEl.style.display = 'none';
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        if (end < start) {
+            summaryEl.style.display = 'none';
+            return;
+        }
+
+        const dayCount = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        
+        daysCountEl.textContent = `${dayCount} day${dayCount !== 1 ? 's' : ''}`;
+        summaryEl.style.display = 'inline-flex';
+    }
+
+    /**
+     * Handle booking type change
+     */
+    handleBookingTypeChange() {
+        const bookingType = document.querySelector('input[name="booking-type"]:checked')?.value || 'daily-visits';
+        
+        const dailyConfig = document.getElementById('daily-visits-config');
+        const overnightConfig = document.getElementById('overnight-stay-config');
+
+        if (bookingType === 'daily-visits') {
+            dailyConfig.style.display = 'block';
+            overnightConfig.style.display = 'none';
+        } else {
+            dailyConfig.style.display = 'none';
+            overnightConfig.style.display = 'block';
+        }
+    }
+
+    /**
+     * Navigate to next step in wizard
+     */
+    multiEventNextStep() {
+        // Validate current step
+        if (!this.validateMultiEventStep(this.multiEventCurrentStep)) {
+            return;
+        }
+
+        this.multiEventCurrentStep++;
+        
+        // If moving to review step, generate preview
+        if (this.multiEventCurrentStep === 3) {
+            this.generateMultiEventPreview();
+        }
+
+        this.updateMultiEventWizardUI();
+    }
+
+    /**
+     * Navigate to previous step in wizard
+     */
+    multiEventPrevStep() {
+        if (this.multiEventCurrentStep > 1) {
+            this.multiEventCurrentStep--;
+            this.updateMultiEventWizardUI();
+        }
+    }
+
+    /**
+     * Update wizard UI based on current step
+     */
+    updateMultiEventWizardUI() {
+        // Update step indicators
+        document.querySelectorAll('.wizard-step').forEach((step, index) => {
+            const stepNum = index + 1;
+            step.classList.remove('active', 'completed');
+            
+            if (stepNum === this.multiEventCurrentStep) {
+                step.classList.add('active');
+            } else if (stepNum < this.multiEventCurrentStep) {
+                step.classList.add('completed');
+            }
+        });
+
+        // Show/hide content panels
+        document.querySelectorAll('.wizard-content').forEach((content, index) => {
+            content.classList.toggle('active', index + 1 === this.multiEventCurrentStep);
+        });
+
+        // Update button visibility
+        const prevBtn = document.getElementById('multi-event-prev');
+        const nextBtn = document.getElementById('multi-event-next');
+        const createBtn = document.getElementById('multi-event-create');
+
+        prevBtn.style.display = this.multiEventCurrentStep > 1 ? 'inline-flex' : 'none';
+        nextBtn.style.display = this.multiEventCurrentStep < 3 ? 'inline-flex' : 'none';
+        createBtn.style.display = this.multiEventCurrentStep === 3 ? 'inline-flex' : 'none';
+    }
+
+    /**
+     * Validate current wizard step
+     */
+    validateMultiEventStep(step) {
+        if (step === 1) {
+            const clientName = document.getElementById('multi-client-name').value.trim();
+            const startDate = document.getElementById('multi-start-date').value;
+            const endDate = document.getElementById('multi-end-date').value;
+
+            if (!clientName) {
+                Utils.showToast('Please enter a client/pet name', 'warning');
+                return false;
+            }
+            if (!startDate || !endDate) {
+                Utils.showToast('Please select start and end dates', 'warning');
+                return false;
+            }
+            if (new Date(endDate) < new Date(startDate)) {
+                Utils.showToast('End date must be after start date', 'warning');
+                return false;
+            }
+        }
+
+        if (step === 2) {
+            const bookingType = document.querySelector('input[name="booking-type"]:checked')?.value;
+            
+            if (bookingType === 'daily-visits') {
+                const container = document.getElementById('visit-slots-container');
+                if (!container || container.querySelectorAll('.visit-slot').length === 0) {
+                    Utils.showToast('Please add at least one visit', 'warning');
+                    return false;
+                }
+
+                const separateWeekend = document.getElementById('multi-separate-weekend').checked;
+                if (separateWeekend) {
+                    const weekendContainer = document.getElementById('weekend-visit-slots-container');
+                    if (!weekendContainer || weekendContainer.querySelectorAll('.visit-slot').length === 0) {
+                        Utils.showToast('Please add at least one weekend visit', 'warning');
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get visit slots data from container
+     */
+    getVisitSlotsData(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
+
+        const slots = [];
+        container.querySelectorAll('.visit-slot').forEach(slot => {
+            const templateSelect = slot.querySelector('.slot-template-select');
+            const timeInput = slot.querySelector('.slot-time-input');
+            const durationSelect = slot.querySelector('.slot-duration-select');
+
+            slots.push({
+                templateId: templateSelect?.value || null,
+                time: timeInput?.value || '12:00',
+                duration: parseInt(durationSelect?.value || '30', 10),
+            });
+        });
+
+        return slots;
+    }
+
+    /**
+     * Check for conflicts between new events and existing events
+     */
+    checkMultiEventConflicts(newEvents) {
+        const conflicts = [];
+        const existingEvents = this.state.events.filter(e => !e.ignored);
+
+        newEvents.forEach(newEvent => {
+            const hasConflict = existingEvents.some(existingEvent => {
+                // Skip if same ID (shouldn't happen for new events but good practice)
+                if (existingEvent.id === newEvent.id) return false;
+
+                // Check for overlap
+                // Event A overlaps Event B if: StartA < EndB && EndA > StartB
+                const startA = new Date(newEvent.start);
+                const endA = new Date(newEvent.end);
+                const startB = new Date(existingEvent.start);
+                const endB = new Date(existingEvent.end);
+
+                return startA < endB && endA > startB;
+            });
+
+            if (hasConflict) {
+                conflicts.push(newEvent);
+            }
+        });
+
+        return conflicts;
+    }
+
+    /**
+     * Generate preview of events to be created
+     */
+    generateMultiEventPreview() {
+        if (!this.templatesManager) return;
+
+        const config = this.getMultiEventConfig();
+        const events = this.templatesManager.generateMultiDayEvents(config);
+
+        // Store for later creation
+        this.pendingMultiEvents = events;
+        
+        this.renderMultiEventTimeline();
+    }
+
+    /**
+     * Render the interactive timeline for multi-event preview
+     */
+    renderMultiEventTimeline() {
+        const events = this.pendingMultiEvents;
+        if (!events) return;
+
+        // Check for conflicts
+        const conflicts = this.checkMultiEventConflicts(events);
+        
+        // Update conflict alert
+        const conflictAlert = document.getElementById('multi-event-conflicts');
+        if (conflictAlert) {
+            if (conflicts.length > 0) {
+                conflictAlert.style.display = 'block';
+                conflictAlert.innerHTML = `
+                    <strong>⚠️ Schedule Conflicts Detected</strong>
+                    <p>${conflicts.length} event${conflicts.length !== 1 ? 's' : ''} overlap with existing appointments.</p>
+                `;
+            } else {
+                conflictAlert.style.display = 'none';
+            }
+        }
+
+        // Update summary stats
+        const totalEvents = events.length;
+        const totalMinutes = events.reduce((sum, e) => sum + ((e.end - e.start) / (1000 * 60)), 0);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const remainingMins = Math.round(totalMinutes % 60);
+
+        document.getElementById('summary-total-events').textContent = totalEvents;
+        document.getElementById('summary-total-hours').textContent = `${totalHours}h ${remainingMins}m`;
+        
+        if (events.length > 0) {
+            // Find min/max date
+            const sortedEvents = [...events].sort((a, b) => a.start - b.start);
+            const start = sortedEvents[0].start;
+            const end = sortedEvents[sortedEvents.length - 1].end;
+            const dateRangeText = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            document.getElementById('summary-date-range').textContent = dateRangeText;
+        }
+
+        const previewContainer = document.getElementById('multi-event-preview');
+        const eventsByDay = {};
+
+        // Group by day
+        events.forEach((event, index) => {
+            const dayKey = event.start.toDateString();
+            if (!eventsByDay[dayKey]) {
+                eventsByDay[dayKey] = [];
+            }
+            // Store index for reference
+            event._index = index;
+            eventsByDay[dayKey].push(event);
+        });
+
+        // Add existing events to the view
+        const uniqueDays = Object.keys(eventsByDay);
+        const showNonWorkEvents = document.getElementById('multi-preview-show-all')?.checked ?? true;
+        
+        uniqueDays.forEach(dayKey => {
+            const dayDate = new Date(dayKey);
+            const dayStart = new Date(dayDate); dayStart.setHours(0,0,0,0);
+            const dayEnd = new Date(dayDate); dayEnd.setHours(23,59,59,999);
+            
+            const existingOnDay = this.state.events.filter(e => {
+                if (e.ignored) return false;
+                
+                // Filter non-work events if toggle is off
+                if (!showNonWorkEvents && !this.eventProcessor.isWorkEvent(e)) {
+                    return false;
+                }
+
+                const eStart = new Date(e.start);
+                return eStart >= dayStart && eStart <= dayEnd;
+            });
+            
+            existingOnDay.forEach(e => {
+                // Clone and mark as existing
+                const existingEvent = { ...e, isExisting: true };
+                // Ensure start/end are Date objects
+                existingEvent.start = new Date(existingEvent.start);
+                existingEvent.end = new Date(existingEvent.end);
+                eventsByDay[dayKey].push(existingEvent);
+            });
+        });
+
+        let html = '';
+        const startHour = 5; // 5 AM
+        const endHour = 23; // 11 PM
+        const timelineDurationHours = endHour - startHour;
+
+        Object.entries(eventsByDay).forEach(([dayKey, dayEvents]) => {
+            const date = new Date(dayKey);
+            const dateLabel = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            
+            // Count only new events for the header
+            const newEventsCount = dayEvents.filter(e => !e.isExisting).length;
+            
+            html += `
+                <div class="timeline-day-container">
+                    <div class="timeline-header">
+                        <span>${dateLabel}</span>
+                        <span class="preview-day-count">${newEventsCount} new event${newEventsCount !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="timeline-track-wrapper" data-date="${dayKey}">
+                        <div class="timeline-grid">
+            `;
+
+            // Grid lines
+            for (let i = 0; i < timelineDurationHours; i++) {
+                const hour = startHour + i;
+                const label = hour > 12 ? `${hour-12}p` : (hour === 12 ? '12p' : `${hour}a`);
+                html += `
+                    <div class="timeline-hour">
+                        <span class="timeline-hour-label">${label}</span>
+                    </div>
+                `;
+            }
+
+            html += `</div>`; // End grid
+
+            // Events
+            dayEvents.forEach(event => {
+                const startPercent = this.timeToPercent(event.start, startHour, timelineDurationHours);
+                const endPercent = this.timeToPercent(event.end, startHour, timelineDurationHours);
+                // Ensure visible width
+                const widthPercent = Math.max(endPercent - startPercent, 2); 
+                
+                const hasConflict = !event.isExisting && conflicts.includes(event);
+                const conflictClass = hasConflict ? 'has-conflict' : '';
+                const isExisting = event.isExisting;
+                const extraClass = isExisting ? 'existing-event' : '';
+                
+                const timeLabel = `${this.formatTime(event.start)} - ${this.formatTime(event.end)}`;
+                const isOvernight = event.type === 'overnight';
+                const icon = isOvernight ? '🌙' : '🏃';
+
+                html += `
+                    <div class="timeline-event-block ${conflictClass} ${extraClass}" 
+                         style="left: ${startPercent}%; width: ${widthPercent}%;"
+                         data-index="${isExisting ? '' : event._index}"
+                         title="${event.title} (${timeLabel})">
+                        ${!isExisting ? '<div class="timeline-handle timeline-handle-w" data-action="resize-left"></div>' : ''}
+                        <span class="timeline-event-content">${icon} ${event.title}</span>
+                        <div class="timeline-tooltip">${timeLabel}</div>
+                        ${!isExisting ? '<div class="timeline-handle timeline-handle-e" data-action="resize-right"></div>' : ''}
+                        ${!isExisting ? `<button class="timeline-event-delete" data-delete-index="${event._index}" title="Remove this event">×</button>` : ''}
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+        });
+
+        previewContainer.innerHTML = html;
+        
+        // Setup interactions
+        this.setupTimelineInteractions();
+    }
+
+    /**
+     * Convert date to percentage on timeline
+     */
+    timeToPercent(date, startHour, totalHours) {
+        const h = date.getHours();
+        const m = date.getMinutes();
+        
+        // Calculate minutes from start of timeline
+        let minutesFromStart = (h - startHour) * 60 + m;
+        const totalMinutes = totalHours * 60;
+        
+        // Clamp
+        if (minutesFromStart < 0) minutesFromStart = 0;
+        if (minutesFromStart > totalMinutes) minutesFromStart = totalMinutes;
+        
+        return (minutesFromStart / totalMinutes) * 100;
+    }
+
+    /**
+     * Convert percentage to time string (HH:MM)
+     */
+    percentToTime(percent, startHour, totalHours) {
+        const totalMinutes = totalHours * 60;
+        const minutesFromStart = (percent / 100) * totalMinutes;
+        
+        let h = Math.floor(minutesFromStart / 60) + startHour;
+        let m = Math.round(minutesFromStart % 60);
+        
+        // Round to nearest 15 mins
+        m = Math.round(m / 15) * 15;
+        if (m === 60) {
+            m = 0;
+            h += 1;
+        }
+        
+        return { h, m };
+    }
+
+    /**
+     * Format time for display
+     */
+    formatTime(date) {
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+
+    /**
+     * Setup drag and drop interactions for timeline
+     */
+    setupTimelineInteractions() {
+        const container = document.getElementById('multi-event-preview');
+        if (!container) return;
+
+        let activeDrag = null;
+
+        // Delete button handler
+        container.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('.timeline-event-delete');
+            if (!deleteBtn) return;
+
+            e.stopPropagation();
+            const index = parseInt(deleteBtn.dataset.deleteIndex);
+            this.deleteMultiEventFromPreview(index);
+        });
+
+        const startDrag = (e) => {
+            // Handle both mouse and touch events
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            
+            const handle = e.target.closest('.timeline-handle');
+            const block = e.target.closest('.timeline-event-block');
+            
+            if (!block) return;
+            if (block.classList.contains('existing-event')) return;
+
+            e.preventDefault(); // Prevent text selection
+
+            const index = parseInt(block.dataset.index);
+            const event = this.pendingMultiEvents[index];
+            const track = block.closest('.timeline-track-wrapper');
+            const trackRect = track.getBoundingClientRect();
+            
+            let action = 'move';
+            if (handle) {
+                action = handle.dataset.action;
+            }
+
+            activeDrag = {
+                element: block,
+                event: event,
+                index: index,
+                action: action,
+                startX: clientX,
+                startLeft: parseFloat(block.style.left),
+                startWidth: parseFloat(block.style.width),
+                trackWidth: trackRect.width,
+                startHour: 5, // Matches render config
+                totalHours: 18 // Matches render config
+            };
+
+            block.style.zIndex = 100;
+        };
+
+        container.addEventListener('mousedown', startDrag);
+        container.addEventListener('touchstart', startDrag, { passive: false });
+
+        const moveDrag = (e) => {
+            if (!activeDrag) return;
+
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const deltaX = clientX - activeDrag.startX;
+            const deltaPercent = (deltaX / activeDrag.trackWidth) * 100;
+
+            let newLeft = activeDrag.startLeft;
+            let newWidth = activeDrag.startWidth;
+
+            if (activeDrag.action === 'move') {
+                newLeft = activeDrag.startLeft + deltaPercent;
+                // Clamp
+                newLeft = Math.max(0, Math.min(100 - newWidth, newLeft));
+                
+                activeDrag.element.style.left = `${newLeft}%`;
+            } else if (activeDrag.action === 'resize-left') {
+                newLeft = activeDrag.startLeft + deltaPercent;
+                newWidth = activeDrag.startWidth - deltaPercent;
+                
+                // Min width check (approx 15 mins)
+                if (newWidth < 2) {
+                    newLeft = activeDrag.startLeft + activeDrag.startWidth - 2;
+                    newWidth = 2;
+                }
+                // Clamp left
+                if (newLeft < 0) {
+                    newWidth += newLeft;
+                    newLeft = 0;
+                }
+
+                activeDrag.element.style.left = `${newLeft}%`;
+                activeDrag.element.style.width = `${newWidth}%`;
+            } else if (activeDrag.action === 'resize-right') {
+                newWidth = activeDrag.startWidth + deltaPercent;
+                
+                // Min width check
+                if (newWidth < 2) newWidth = 2;
+                // Clamp right
+                if (activeDrag.startLeft + newWidth > 100) {
+                    newWidth = 100 - activeDrag.startLeft;
+                }
+
+                activeDrag.element.style.width = `${newWidth}%`;
+            }
+
+            // Update tooltip with live time
+            const startPercent = newLeft;
+            const endPercent = newLeft + newWidth;
+            
+            const startTime = this.percentToTime(startPercent, activeDrag.startHour, activeDrag.totalHours);
+            const endTime = this.percentToTime(endPercent, activeDrag.startHour, activeDrag.totalHours);
+            
+            const format = (t) => {
+                const d = new Date();
+                d.setHours(t.h, t.m);
+                return this.formatTime(d);
+            };
+
+            const tooltip = activeDrag.element.querySelector('.timeline-tooltip');
+            if (tooltip) {
+                tooltip.textContent = `${format(startTime)} - ${format(endTime)}`;
+            }
+        };
+
+        document.addEventListener('mousemove', moveDrag);
+        document.addEventListener('touchmove', moveDrag, { passive: false });
+
+        const endDrag = (e) => {
+            if (!activeDrag) return;
+
+            // Apply changes
+            const style = activeDrag.element.style;
+            const finalLeft = parseFloat(style.left);
+            const finalWidth = parseFloat(style.width);
+            
+            const startPercent = finalLeft;
+            const endPercent = finalLeft + finalWidth;
+            
+            const startTime = this.percentToTime(startPercent, activeDrag.startHour, activeDrag.totalHours);
+            const endTime = this.percentToTime(endPercent, activeDrag.startHour, activeDrag.totalHours);
+
+            // Update event object
+            const event = activeDrag.event;
+            
+            // Keep original date, update time
+            const newStart = new Date(event.start);
+            newStart.setHours(startTime.h, startTime.m);
+            
+            const newEnd = new Date(event.end);
+            // Handle day rollover if needed, but for now assume same day for daily visits
+            // If end time is less than start time, it might be next day? 
+            // But our timeline is 5am-11pm same day.
+            newEnd.setFullYear(newStart.getFullYear(), newStart.getMonth(), newStart.getDate());
+            newEnd.setHours(endTime.h, endTime.m);
+
+            event.start = newStart;
+            event.end = newEnd;
+
+            // Re-render to snap to grid and update conflicts
+            this.renderMultiEventTimeline();
+
+            activeDrag = null;
+        };
+
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+    }
+
+    /**
+     * Delete an event from the preview
+     * @param {number} index - Index of event to delete
+     */
+    deleteMultiEventFromPreview(index) {
+        if (!this.pendingMultiEvents || index < 0 || index >= this.pendingMultiEvents.length) {
+            return;
+        }
+
+        const event = this.pendingMultiEvents[index];
+        const eventTitle = event.title;
+
+        // Confirm deletion
+        const confirmed = confirm(`Remove "${eventTitle}" from the schedule?`);
+        if (!confirmed) return;
+
+        // Remove from array
+        this.pendingMultiEvents.splice(index, 1);
+
+        // Re-render timeline
+        this.renderMultiEventTimeline();
+
+        Utils.showToast(`Removed "${eventTitle}" from schedule`, 'success');
+    }
+
+    /**
+     * Get multi-event configuration from form
+     */
+    getMultiEventConfig() {
+        const bookingType = document.querySelector('input[name="booking-type"]:checked')?.value || 'daily-visits';
+
+        const config = {
+            clientName: document.getElementById('multi-client-name').value.trim(),
+            location: document.getElementById('multi-location').value.trim(),
+            startDate: document.getElementById('multi-start-date').value,
+            endDate: document.getElementById('multi-end-date').value,
+            bookingType: bookingType,
+        };
+
+        if (bookingType === 'daily-visits') {
+            config.visits = this.getVisitSlotsData('visit-slots-container');
+            
+            const separateWeekend = document.getElementById('multi-separate-weekend').checked;
+            if (separateWeekend) {
+                config.weekendVisits = this.getVisitSlotsData('weekend-visit-slots-container');
+            }
+        } else {
+            config.overnightConfig = {
+                templateId: document.getElementById('multi-overnight-template').value || null,
+                arrivalTime: document.getElementById('multi-overnight-start').value || '18:00',
+                departureTime: document.getElementById('multi-overnight-end').value || '08:00',
+            };
+
+            const enableDropins = document.getElementById('multi-enable-dropins').checked;
+            config.dropinConfig = {
+                enabled: enableDropins,
+                visits: enableDropins ? this.getVisitSlotsData('overnight-dropin-slots-container') : [],
+                skipFirstDay: document.getElementById('multi-skip-first-day').checked,
+                skipLastDay: document.getElementById('multi-skip-last-day').checked,
+            };
+        }
+
+        return config;
+    }
+
+    /**
+     * Create all pending multi-events
+     */
+    async createMultiEvents() {
+        if (!this.pendingMultiEvents || this.pendingMultiEvents.length === 0) {
+            Utils.showToast('No events to create', 'warning');
+            return;
+        }
+
+        // Add all events to state
+        this.state.events.push(...this.pendingMultiEvents);
+
+        // Save to storage
+        this.dataManager.saveData(this.getPersistentState());
+
+        // Close modal
+        Utils.hideModal('multi-event-modal');
+
+        // Re-render current view
+        await this.renderCurrentView();
+        this.renderer.updateWorkloadIndicator(this.state);
+
+        const count = this.pendingMultiEvents.length;
+        Utils.showToast(`✅ Created ${count} event${count !== 1 ? 's' : ''}!`, 'success');
+
+        // Clear pending events
+        this.pendingMultiEvents = null;
     }
 
     /**
