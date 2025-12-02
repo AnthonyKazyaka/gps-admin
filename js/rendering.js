@@ -261,10 +261,12 @@ class RenderEngine {
         const todayEnd = new Date(today);
         todayEnd.setHours(23, 59, 59, 999);
 
-        // Get today's appointments, sorted by time
+        // Get today's work appointments only, sorted by time
         const todayAppointments = state.events
             .filter(event => {
                 if (event.ignored || event.isAllDay) return false;
+                // Only include work events
+                if (!event.isWorkEvent && !this.eventProcessor.isWorkEvent(event)) return false;
                 const eventStart = new Date(event.start);
                 return eventStart >= today && eventStart <= todayEnd;
             })
@@ -272,7 +274,7 @@ class RenderEngine {
             .slice(0, 5); // Show next 5 appointments
 
         if (todayAppointments.length === 0) {
-            container.innerHTML = '<div class="upcoming-empty">📅 No appointments scheduled for today<br><small>Enjoy your free day!</small></div>';
+            container.innerHTML = '<div class="upcoming-empty">📅 No work appointments scheduled for today<br><small>Enjoy your free day!</small></div>';
             return;
         }
 
