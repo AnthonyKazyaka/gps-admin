@@ -224,6 +224,45 @@ class GPSAdminApp {
             });
         }
 
+        // Template duration adjustment buttons
+        const durationDecrease = document.getElementById('duration-decrease');
+        const durationIncrease = document.getElementById('duration-increase');
+        const durationInput = document.getElementById('template-duration-input');
+        
+        if (durationDecrease && durationInput) {
+            durationDecrease.addEventListener('click', () => {
+                const currentValue = parseInt(durationInput.value) || 30;
+                const newValue = Math.max(5, currentValue - 5);
+                durationInput.value = newValue;
+                
+                // Update the main duration dropdown if there's a matching option
+                const durationSelect = document.getElementById('appointment-duration');
+                const matchingOption = Array.from(durationSelect.options).find(opt => opt.value === newValue.toString());
+                if (matchingOption) {
+                    durationSelect.value = newValue.toString();
+                } else {
+                    durationSelect.value = 'custom';
+                }
+            });
+        }
+        
+        if (durationIncrease && durationInput) {
+            durationIncrease.addEventListener('click', () => {
+                const currentValue = parseInt(durationInput.value) || 30;
+                const newValue = Math.min(1440, currentValue + 5);
+                durationInput.value = newValue;
+                
+                // Update the main duration dropdown if there's a matching option
+                const durationSelect = document.getElementById('appointment-duration');
+                const matchingOption = Array.from(durationSelect.options).find(opt => opt.value === newValue.toString());
+                if (matchingOption) {
+                    durationSelect.value = newValue.toString();
+                } else {
+                    durationSelect.value = 'custom';
+                }
+            });
+        }
+
         // Settings buttons
         const saveApiSettingsBtn = document.getElementById('save-api-settings');
         if (saveApiSettingsBtn) {
@@ -1269,7 +1308,20 @@ class GPSAdminApp {
         const title = document.getElementById('appointment-title').value.trim();
         const dateStr = document.getElementById('appointment-date').value;
         const timeStr = document.getElementById('appointment-time').value;
-        const duration = parseInt(document.getElementById('appointment-duration').value);
+        
+        // Check if custom duration input is visible and has a value
+        const customDurationInput = document.getElementById('template-duration-input');
+        const customDurationControls = document.getElementById('template-duration-controls');
+        let duration;
+        
+        if (customDurationControls && customDurationControls.style.display !== 'none' && customDurationInput?.value) {
+            // Use custom duration from template adjustment
+            duration = parseInt(customDurationInput.value);
+        } else {
+            // Use regular duration dropdown
+            duration = parseInt(document.getElementById('appointment-duration').value);
+        }
+        
         const location = document.getElementById('appointment-location').value.trim();
         const includeTravel = document.getElementById('appointment-travel').checked;
         const notes = document.getElementById('appointment-notes').value.trim();

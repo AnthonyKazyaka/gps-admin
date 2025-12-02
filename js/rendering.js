@@ -2331,6 +2331,11 @@ class RenderEngine {
      */
     handleTemplateSelection(templateId, templatesManager) {
         if (!templateId || !templatesManager) {
+            // Hide custom duration controls when no template selected
+            const customControls = document.getElementById('template-duration-controls');
+            if (customControls) {
+                customControls.style.display = 'none';
+            }
             return;
         }
 
@@ -2343,7 +2348,15 @@ class RenderEngine {
             titleInput.value = template.name;
         }
 
-        // Set duration
+        // Show and populate custom duration controls
+        const customControls = document.getElementById('template-duration-controls');
+        const durationInput = document.getElementById('template-duration-input');
+        if (customControls && durationInput) {
+            customControls.style.display = 'block';
+            durationInput.value = template.duration;
+        }
+
+        // Set duration dropdown to match template
         const durationSelect = document.getElementById('appointment-duration');
         const durationValue = template.duration.toString();
         const matchingOption = Array.from(durationSelect.options).find(opt => opt.value === durationValue);

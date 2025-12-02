@@ -688,6 +688,17 @@
                         </select>
                     </div>
 
+                    <!-- Template Duration Customization (hidden by default) -->
+                    <div class="form-group" id="template-duration-controls" style="display: none;">
+                        <label for="template-duration-input">Custom Duration (minutes)</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" id="duration-decrease" class="btn btn-secondary" style="padding: 8px 12px; min-width: 40px;">−</button>
+                            <input type="number" id="template-duration-input" class="input" min="5" max="1440" step="5" style="flex: 1; text-align: center;">
+                            <button type="button" id="duration-increase" class="btn btn-secondary" style="padding: 8px 12px; min-width: 40px;">+</button>
+                        </div>
+                        <small style="color: var(--text-muted); font-size: 0.875rem; margin-top: 4px; display: block;">Use +/− buttons or type a value (increments of 5 minutes)</small>
+                    </div>
+
                     <div class="form-group">
                         <label for="appointment-location">Location</label>
                         <input type="text" id="appointment-location" class="input" placeholder="Client address">
