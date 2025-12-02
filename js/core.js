@@ -580,20 +580,42 @@ class GPSAdminApp {
             });
         });
 
-        // Previous month
+        // Previous period (month/week/day depending on view)
         const prevBtn = document.getElementById('calendar-prev');
         if (prevBtn) {
             prevBtn.addEventListener('click', () => {
-                this.state.currentDate.setMonth(this.state.currentDate.getMonth() - 1);
+                switch (this.state.calendarView) {
+                    case 'day':
+                        this.state.currentDate.setDate(this.state.currentDate.getDate() - 1);
+                        break;
+                    case 'week':
+                        this.state.currentDate.setDate(this.state.currentDate.getDate() - 7);
+                        break;
+                    case 'month':
+                    default:
+                        this.state.currentDate.setMonth(this.state.currentDate.getMonth() - 1);
+                        break;
+                }
                 this.renderCalendar();
             });
         }
 
-        // Next month
+        // Next period (month/week/day depending on view)
         const nextBtn = document.getElementById('calendar-next');
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
-                this.state.currentDate.setMonth(this.state.currentDate.getMonth() + 1);
+                switch (this.state.calendarView) {
+                    case 'day':
+                        this.state.currentDate.setDate(this.state.currentDate.getDate() + 1);
+                        break;
+                    case 'week':
+                        this.state.currentDate.setDate(this.state.currentDate.getDate() + 7);
+                        break;
+                    case 'month':
+                    default:
+                        this.state.currentDate.setMonth(this.state.currentDate.getMonth() + 1);
+                        break;
+                }
                 this.renderCalendar();
             });
         }
