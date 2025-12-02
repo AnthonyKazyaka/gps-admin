@@ -9,6 +9,71 @@ class Utils {
     static DAY_NAMES_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     static MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    // Chart color palette (used across multiple chart types)
+    static CHART_COLORS = [
+        '#3b82f6', // blue
+        '#10b981', // green  
+        '#f59e0b', // amber
+        '#ef4444', // red
+        '#8b5cf6', // purple
+        '#06b6d4', // cyan
+        '#f97316', // orange
+        '#ec4899'  // pink
+    ];
+
+    /**
+     * Get a chart color by index (cycles through palette)
+     * @param {number} index - Index of the color
+     * @returns {string} Hex color code
+     */
+    static getChartColor(index) {
+        return Utils.CHART_COLORS[index % Utils.CHART_COLORS.length];
+    }
+
+    /**
+     * Create an HTML element string with escaped content
+     * @param {string} tag - HTML tag name
+     * @param {Object} attrs - HTML attributes
+     * @param {string} content - Inner content (will be escaped if escapeContent is true)
+     * @param {boolean} escapeContent - Whether to escape content (default true)
+     * @returns {string} HTML string
+     */
+    static createElement(tag, attrs = {}, content = '', escapeContent = false) {
+        const attrString = Object.entries(attrs)
+            .filter(([_, value]) => value !== undefined && value !== null)
+            .map(([key, value]) => `${key}="${value}"`)
+            .join(' ');
+        
+        const safeContent = escapeContent ? Utils.escapeHtml(content) : content;
+        const attrsWithSpace = attrString ? ` ${attrString}` : '';
+        
+        return `<${tag}${attrsWithSpace}>${safeContent}</${tag}>`;
+    }
+
+    /**
+     * Escape HTML special characters
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string
+     */
+    static escapeHtml(str) {
+        if (!str || typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    /**
+     * Join CSS classes, filtering out falsy values
+     * @param {...(string|boolean|null|undefined)} classes - Class names
+     * @returns {string} Space-separated class string
+     */
+    static classNames(...classes) {
+        return classes.filter(Boolean).join(' ');
+    }
 
     /**
      * Format duration in minutes to human-readable string
@@ -71,13 +136,40 @@ class Utils {
     }
 
     /**
+     * Normalize a date to midnight (start of day)
+     * This is a common operation to compare dates without time components
+     * @param {Date|string} date - The date to normalize
+     * @returns {Date} Date object set to midnight (00:00:00.000)
+     */
+    static normalizeDate(date) {
+        const normalized = new Date(date);
+        normalized.setHours(0, 0, 0, 0);
+        return normalized;
+    }
+
+    /**
+     * Create a new date set to midnight from components
+     * Useful when you need a fresh date object at start of day
+     * @param {Date} baseDate - Base date to copy year/month/day from
+     * @param {number} offsetDays - Optional number of days to add (default 0)
+     * @returns {Date} New date object at midnight
+     */
+    static createNormalizedDate(baseDate, offsetDays = 0) {
+        const date = new Date(baseDate);
+        date.setHours(0, 0, 0, 0);
+        if (offsetDays !== 0) {
+            date.setDate(date.getDate() + offsetDays);
+        }
+        return date;
+    }
+
+    /**
      * Create day boundaries for date filtering
      * @param {Date} date - The date
      * @returns {Object} Object with dayStart and dayEnd
      */
     static getDayBoundaries(date) {
-        const dayStart = new Date(date);
-        dayStart.setHours(0, 0, 0, 0);
+        const dayStart = Utils.normalizeDate(date);
         
         const dayEnd = new Date(date);
         dayEnd.setHours(23, 59, 59, 999);

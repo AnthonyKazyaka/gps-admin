@@ -215,14 +215,9 @@ class EventProcessor {
     isOvernightEndDate(event, targetDate) {
         if (!this.isOvernightEvent(event)) return false;
         
-        const targetDayStart = new Date(targetDate);
-        targetDayStart.setHours(0, 0, 0, 0);
-        
-        const eventStartDay = new Date(event.start);
-        eventStartDay.setHours(0, 0, 0, 0);
-        
-        const eventEndDay = new Date(event.end);
-        eventEndDay.setHours(0, 0, 0, 0);
+        const targetDayStart = Utils.normalizeDate(targetDate);
+        const eventStartDay = Utils.normalizeDate(event.start);
+        const eventEndDay = Utils.normalizeDate(event.end);
         
         // It's the end date if the target matches the event end day and is different from start day
         return targetDayStart.getTime() === eventEndDay.getTime() && 
@@ -248,6 +243,28 @@ class EventProcessor {
         // Calculate duration in minutes
         const durationMs = effectiveEnd - effectiveStart;
         return Math.max(0, Math.floor(durationMs / (1000 * 60)));
+    }
+
+    /**
+     * Get active work events for a specific day (excluding overnight events that are ending)
+     * This is a common filtering pattern used across rendering and calculations
+     * @param {Array} events - Events to filter  
+     * @param {Date} targetDate - The date to check work events for
+     * @returns {Array} Filtered work events (active, not ending)
+     */
+    getActiveWorkEvents(events, targetDate) {
+        if (!Array.isArray(events)) return [];
+        
+        return events.filter(event => {
+            const isWork = event.isWorkEvent || this.isWorkEvent(event);
+            if (!isWork) return false;
+            
+            // Exclude overnight events that are ending on this day
+            if (this.isOvernightEvent(event)) {
+                return !this.isOvernightEndDate(event, targetDate);
+            }
+            return true;
+        });
     }
 
     /**

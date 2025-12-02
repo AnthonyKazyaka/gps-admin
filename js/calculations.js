@@ -200,8 +200,7 @@ class WorkloadCalculator {
      * @returns {Object} Comparison data
      */
     getWeekComparison(events, currentDate) {
-        const today = new Date(currentDate);
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(currentDate);
 
         // This week (starting from today)
         const thisWeekStats = this.calculateWeeklyStats(events, today, { includeTravel: true });

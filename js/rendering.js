@@ -27,8 +27,7 @@ class RenderEngine {
      * @param {Object} state - Application state
      */
     async renderQuickStats(state) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
 
         const todayEvents = this.eventProcessor.getEventsForDate(state.events, today, {
             workEventsOnly: true
@@ -62,9 +61,7 @@ class RenderEngine {
         let html = '';
 
         for (let i = 0; i < 7; i++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + i);
-            date.setHours(0, 0, 0, 0);
+            const date = Utils.createNormalizedDate(startOfWeek, i);
 
             const dayEvents = this.eventProcessor.getEventsForDate(state.events, date);
             const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, date, { includeTravel: true });
@@ -117,8 +114,7 @@ class RenderEngine {
      * @param {Date} date - Date to show
      */
     showDayDetails(state, date) {
-        const dateKey = new Date(date);
-        dateKey.setHours(0, 0, 0, 0);
+        const dateKey = Utils.normalizeDate(date);
 
         const dayEvents = this.eventProcessor.getEventsForDate(state.events, dateKey);
         const sortedEvents = dayEvents.sort((a, b) => a.start - b.start);
@@ -126,24 +122,14 @@ class RenderEngine {
         const metrics = this.calculator.calculateWorkloadMetrics(sortedEvents, dateKey, { includeTravel: true });
         
         // Count only work events (excluding ending housesits)
-        const workEvents = sortedEvents.filter(event => {
-            const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event);
-            if (!isWork) return false;
-            
-            // Exclude overnight events that are ending
-            if (this.eventProcessor.isOvernightEvent(event)) {
-                return !this.eventProcessor.isOvernightEndDate(event, dateKey);
-            }
-            return true;
-        });
+        const workEvents = this.eventProcessor.getActiveWorkEvents(sortedEvents, dateKey);
         const workEventCount = workEvents.length;
         
         // Check housesit status
         const hasHousesitEnding = metrics.housesits.some(h => h.isEndDate);
         const hasActiveHousesit = metrics.housesits.some(h => !h.isEndDate);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
         const isToday = dateKey.getTime() === today.getTime();
 
         const titleElement = document.getElementById('day-details-title');
@@ -256,10 +242,7 @@ class RenderEngine {
         if (!container) return;
 
         const now = new Date();
-        const today = new Date(now);
-        today.setHours(0, 0, 0, 0);
-        const todayEnd = new Date(today);
-        todayEnd.setHours(23, 59, 59, 999);
+        const { dayStart: today, dayEnd: todayEnd } = Utils.getDayBoundaries(now);
 
         // Get today's work appointments only, sorted by time
         const todayAppointments = state.events
@@ -316,8 +299,7 @@ class RenderEngine {
             return;
         }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
 
         // Calculate for next 7 days (current week)
         const weekData = [];
@@ -327,9 +309,7 @@ class RenderEngine {
         let daysWithAppointments = 0;
 
         for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            date.setHours(0, 0, 0, 0);
+            const date = Utils.createNormalizedDate(today, i);
 
             const dayEvents = this.eventProcessor.getEventsForDate(state.events, date);
             const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, date, { includeTravel: true });
@@ -437,19 +417,12 @@ class RenderEngine {
 
         // Analyze next 7 days
         for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            date.setHours(0, 0, 0, 0);
+            const date = Utils.createNormalizedDate(today, i);
+            const { dayStart, dayEnd } = Utils.getDayBoundaries(date);
 
             const dayEvents = state.events.filter(event => {
                 const eventStart = new Date(event.start);
                 const eventEnd = new Date(event.end);
-                
-                // Set day boundaries
-                const dayStart = new Date(date);
-                dayStart.setHours(0, 0, 0, 0);
-                const dayEnd = new Date(date);
-                dayEnd.setHours(23, 59, 59, 999);
                 
                 // Check if event overlaps with this day (handles multi-day events)
                 return eventEnd > dayStart && eventStart <= dayEnd;
@@ -527,9 +500,7 @@ class RenderEngine {
         let html = '';
 
         for (let i = 0; i < 7; i++) {
-            const date = new Date(startOfWeek);
-            date.setDate(startOfWeek.getDate() + i);
-            date.setHours(0, 0, 0, 0);
+            const date = Utils.createNormalizedDate(startOfWeek, i);
 
             const dayEvents = this.eventProcessor.getEventsForDate(state.events, date);
             const metrics = this.calculator.calculateWorkloadMetrics(dayEvents, date, { includeTravel: false });
@@ -682,37 +653,7 @@ class RenderEngine {
      * @returns {Object} Start and end dates
      */
     getDateRange(range) {
-        const now = new Date();
-        let startDate, endDate;
-
-        switch (range) {
-            case 'week':
-                startDate = new Date(now);
-                startDate.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
-                startDate.setHours(0, 0, 0, 0);
-                endDate = new Date(startDate);
-                endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
-                endDate.setHours(23, 59, 59, 999);
-                break;
-            case 'month':
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-                break;
-            case 'quarter':
-                const quarter = Math.floor(now.getMonth() / 3);
-                startDate = new Date(now.getFullYear(), quarter * 3, 1);
-                endDate = new Date(now.getFullYear(), (quarter + 1) * 3, 0, 23, 59, 59, 999);
-                break;
-            case 'year':
-                startDate = new Date(now.getFullYear(), 0, 1);
-                endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-                break;
-            default:
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        }
-
-        return { startDate, endDate };
+        return this._calculatePeriodRange(range, 0);
     }
 
     /**
@@ -721,41 +662,61 @@ class RenderEngine {
      * @returns {Object} Start and end dates
      */
     getPreviousPeriodRange(range) {
+        return this._calculatePeriodRange(range, -1);
+    }
+
+    /**
+     * Calculate date range for a given period and offset
+     * @param {string} range - Time range ('week', 'month', 'quarter', 'year')
+     * @param {number} periodOffset - 0 for current period, -1 for previous, etc.
+     * @returns {Object} Start and end dates
+     * @private
+     */
+    _calculatePeriodRange(range, periodOffset = 0) {
         const now = new Date();
-        let prevStartDate, prevEndDate;
+        let startDate, endDate;
 
         switch (range) {
             case 'week':
-                const thisWeekStart = new Date(now);
-                thisWeekStart.setDate(now.getDate() - now.getDay());
-                thisWeekStart.setHours(0, 0, 0, 0);
-
-                prevStartDate = new Date(thisWeekStart);
-                prevStartDate.setDate(thisWeekStart.getDate() - 7);
-                prevEndDate = new Date(prevStartDate);
-                prevEndDate.setDate(prevStartDate.getDate() + 6);
-                prevEndDate.setHours(23, 59, 59, 999);
+                // Get start of current week (Sunday)
+                const weekStart = Utils.normalizeDate(now);
+                weekStart.setDate(now.getDate() - now.getDay());
+                // Apply offset (weeks)
+                weekStart.setDate(weekStart.getDate() + (periodOffset * 7));
+                
+                startDate = new Date(weekStart);
+                endDate = new Date(weekStart);
+                endDate.setDate(weekStart.getDate() + 6);
+                endDate.setHours(23, 59, 59, 999);
                 break;
+                
             case 'month':
-                const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                prevEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                const targetMonth = now.getMonth() + periodOffset;
+                startDate = new Date(now.getFullYear(), targetMonth, 1);
+                endDate = new Date(now.getFullYear(), targetMonth + 1, 0, 23, 59, 59, 999);
                 break;
+                
             case 'quarter':
-                const quarter = Math.floor(now.getMonth() / 3);
-                prevStartDate = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
-                prevEndDate = new Date(now.getFullYear(), quarter * 3, 0, 23, 59, 59, 999);
+                const currentQuarter = Math.floor(now.getMonth() / 3);
+                const targetQuarter = currentQuarter + periodOffset;
+                startDate = new Date(now.getFullYear(), targetQuarter * 3, 1);
+                endDate = new Date(now.getFullYear(), (targetQuarter + 1) * 3, 0, 23, 59, 59, 999);
                 break;
+                
             case 'year':
-                prevStartDate = new Date(now.getFullYear() - 1, 0, 1);
-                prevEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+                const targetYear = now.getFullYear() + periodOffset;
+                startDate = new Date(targetYear, 0, 1);
+                endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
                 break;
+                
             default:
-                prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                prevEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+                // Default to month
+                const defaultTargetMonth = now.getMonth() + periodOffset;
+                startDate = new Date(now.getFullYear(), defaultTargetMonth, 1);
+                endDate = new Date(now.getFullYear(), defaultTargetMonth + 1, 0, 23, 59, 59, 999);
         }
 
-        return { startDate: prevStartDate, endDate: prevEndDate };
+        return { startDate, endDate };
     }
 
     /**
@@ -942,8 +903,7 @@ class RenderEngine {
             let currentDate = new Date(startDate);
             let dayIndex = 0;
             while (currentDate <= endDate) {
-                const dateKey = new Date(currentDate);
-                dateKey.setHours(0, 0, 0, 0);
+                const dateKey = Utils.normalizeDate(currentDate);
                 
                 // Get events for this day using the same method as calendar
                 const dayEvents = this.eventProcessor.getEventsForDate(events, dateKey);
@@ -976,9 +936,7 @@ class RenderEngine {
                 // Calculate total hours for the week using calculator
                 let weekHours = 0;
                 for (let i = 0; i < 7; i++) {
-                    const dayDate = new Date(weekStart);
-                    dayDate.setDate(weekStart.getDate() + i);
-                    dayDate.setHours(0, 0, 0, 0);
+                    const dayDate = Utils.createNormalizedDate(weekStart, i);
                     
                     if (dayDate > endDate) break;
                     
@@ -1336,16 +1294,12 @@ class RenderEngine {
         }
 
         const maxValue = Math.max(...data.map(d => d.value), 1);
-        const colors = [
-            '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
-            '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'
-        ];
 
         let html = '<div class="horizontal-bar-chart">';
         
         data.forEach((item, idx) => {
             const widthPercent = (item.value / maxValue * 100);
-            const color = colors[idx % colors.length];
+            const color = Utils.getChartColor(idx);
             
             html += `
                 <div class="h-bar-item">
@@ -1531,18 +1485,7 @@ class RenderEngine {
      * Render donut chart
      */
     renderDonutChart(container, data) {
-        const colors = [
-            '#3b82f6', // blue
-            '#10b981', // green
-            '#f59e0b', // amber
-            '#ef4444', // red
-            '#8b5cf6', // purple
-            '#06b6d4', // cyan
-            '#f97316', // orange
-            '#ec4899'  // pink
-        ];
-
-        const html = '<div class="donut-legend">' + data.map((item, idx) => '<div class="donut-legend-item"><div class="donut-legend-color" style="background: ' + colors[idx % colors.length] + '"></div><div class="donut-legend-label">' + item.label + '</div><div class="donut-legend-value">' + item.value + ' (' + item.percentage + '%)</div></div>').join('') + '</div>';
+        const html = '<div class="donut-legend">' + data.map((item, idx) => '<div class="donut-legend-item"><div class="donut-legend-color" style="background: ' + Utils.getChartColor(idx) + '"></div><div class="donut-legend-label">' + item.label + '</div><div class="donut-legend-value">' + item.value + ' (' + item.percentage + '%)</div></div>').join('') + '</div>';
 
         container.innerHTML = html;
     }
@@ -1690,8 +1633,7 @@ class RenderEngine {
         const startDate = new Date(firstDay);
         startDate.setDate(startDate.getDate() - startDate.getDay());
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
 
         // Render weekday headers into dedicated container
         // Remove week-view class if present (for month view)
@@ -1710,8 +1652,7 @@ class RenderEngine {
 
         const currentDate = new Date(startDate);
         while (currentDate <= lastDay || currentDate.getDay() !== 0) {
-            const dateKey = new Date(currentDate);
-            dateKey.setHours(0, 0, 0, 0);
+            const dateKey = Utils.normalizeDate(currentDate);
 
             const dayEvents = this.eventProcessor.getEventsForDate(state.events, dateKey);
             
@@ -1720,16 +1661,7 @@ class RenderEngine {
             });
             
             // Count only work events for display (excluding ending housesits)
-            const workEvents = dayEvents.filter(event => {
-                const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event);
-                if (!isWork) return false;
-                
-                // Exclude overnight events that are ending
-                if (this.eventProcessor.isOvernightEvent(event)) {
-                    return !this.eventProcessor.isOvernightEndDate(event, dateKey);
-                }
-                return true;
-            });
+            const workEvents = this.eventProcessor.getActiveWorkEvents(dayEvents, dateKey);
             const workEventCount = workEvents.length;
 
             const hours = Utils.formatHours(metrics.totalHours);
@@ -1793,12 +1725,10 @@ class RenderEngine {
     renderWeekView(container, state) {
         // Get the start of the week (Sunday) for the current date
         const currentDate = new Date(state.currentDate);
-        const startOfWeek = new Date(currentDate);
+        const startOfWeek = Utils.normalizeDate(new Date(currentDate));
         startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
 
         // Render weekday headers into dedicated container
         // Add week-view class for mobile styling
@@ -1817,9 +1747,7 @@ class RenderEngine {
 
         // Generate 7 days (Sunday through Saturday)
         for (let i = 0; i < 7; i++) {
-            const dateKey = new Date(startOfWeek);
-            dateKey.setDate(startOfWeek.getDate() + i);
-            dateKey.setHours(0, 0, 0, 0);
+            const dateKey = Utils.createNormalizedDate(startOfWeek, i);
 
             const dayEvents = this.eventProcessor.getEventsForDate(state.events, dateKey);
 
@@ -1828,16 +1756,7 @@ class RenderEngine {
             });
 
             // Count only work events for display (excluding ending housesits)
-            const workEvents = dayEvents.filter(event => {
-                const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event);
-                if (!isWork) return false;
-
-                // Exclude overnight events that are ending
-                if (this.eventProcessor.isOvernightEvent(event)) {
-                    return !this.eventProcessor.isOvernightEndDate(event, dateKey);
-                }
-                return true;
-            });
+            const workEvents = this.eventProcessor.getActiveWorkEvents(dayEvents, dateKey);
             const workEventCount = workEvents.length;
 
             const hours = Utils.formatHours(metrics.totalHours);
@@ -1960,11 +1879,9 @@ class RenderEngine {
      * Render day calendar view
      */
     renderDayView(container, state) {
-        const currentDate = new Date(state.currentDate);
-        currentDate.setHours(0, 0, 0, 0);
+        const currentDate = Utils.normalizeDate(new Date(state.currentDate));
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
         const isToday = currentDate.getTime() === today.getTime();
 
         // Get events for this day
@@ -1977,16 +1894,7 @@ class RenderEngine {
         });
 
         // Count only work events (excluding ending housesits)
-        const workEvents = sortedEvents.filter(event => {
-            const isWork = event.isWorkEvent || this.eventProcessor.isWorkEvent(event.title);
-            if (!isWork) return false;
-
-            // Exclude overnight events that are ending
-            if (this.eventProcessor.isOvernightEvent(event)) {
-                return !this.eventProcessor.isOvernightEndDate(event, currentDate);
-            }
-            return true;
-        });
+        const workEvents = this.eventProcessor.getActiveWorkEvents(sortedEvents, currentDate);
         const workEventCount = workEvents.length;
 
         // Build the day view HTML
@@ -2373,8 +2281,7 @@ class RenderEngine {
         const indicator = document.getElementById('workload-indicator');
         if (!indicator) return;
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = Utils.normalizeDate(new Date());
 
         const todayEvents = this.eventProcessor.getEventsForDate(state.events, today);
         const metrics = this.calculator.calculateWorkloadMetrics(todayEvents, today, {
