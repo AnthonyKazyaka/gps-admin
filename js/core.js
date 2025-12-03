@@ -3207,6 +3207,20 @@ class GPSAdminApp {
                 // Disable if selected elsewhere and not the current value
                 option.disabled = selectedValues.includes(option.value) && option.value !== currentValue;
             });
+            
+            // If current value is now disabled, select the first non-disabled option
+            const currentOption = select.querySelector(`option[value="${currentValue}"]`);
+            if (currentOption && currentOption.disabled) {
+                const firstEnabled = select.querySelector('option:not([disabled])');
+                if (firstEnabled) {
+                    select.value = firstEnabled.value;
+                    // Trigger change event to update sort options
+                    const levelDiv = select.closest('.group-level');
+                    if (levelDiv) {
+                        this.updateSortOptionsForLevel(levelDiv);
+                    }
+                }
+            }
         });
     }
 
