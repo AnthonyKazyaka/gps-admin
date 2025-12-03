@@ -1162,7 +1162,7 @@
 
                     <div class="form-group">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
-                            <label>Group By</label>
+                            <label>Group Events By</label>
                             <button type="button" id="add-group-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -1174,30 +1174,28 @@
                         <div id="group-levels-container">
                             <!-- Group levels will be dynamically added here -->
                             <div class="group-level" data-level="1">
-                                <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
-                                    <span class="group-level-label">1.</span>
-                                    <div>
-                                        <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
-                                        <select class="select group-level-select" data-level="1">
-                                            <option value="none">No Grouping</option>
-                                            <option value="date" selected>Date</option>
-                                            <option value="week">Week</option>
-                                            <option value="month">Month</option>
-                                            <option value="client">Client/Pet</option>
-                                            <option value="service">Service Type</option>
-                                        </select>
+                                <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <button type="button" class="btn-icon btn-reorder move-group-up" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move up">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                <polyline points="18 15 12 9 6 15"></polyline>
+                                            </svg>
+                                        </button>
+                                        <button type="button" class="btn-icon btn-reorder move-group-down" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move down">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
-                                        <select class="select group-level-sort" data-level="1" style="font-size: 0.875rem;">
-                                            <option value="date-asc">Date: Old→New</option>
-                                            <option value="date-desc">Date: New→Old</option>
-                                            <option value="time-asc">Time: Early→Late</option>
-                                            <option value="time-desc">Time: Late→Early</option>
-                                            <option value="alpha-asc" selected>A→Z</option>
-                                            <option value="alpha-desc">Z→A</option>
-                                        </select>
-                                    </div>
+                                    <span class="group-level-label" style="min-width: 20px;">1.</span>
+                                    <select class="select group-level-select" data-level="1" style="flex: 1;">
+                                        <option value="none">No grouping (flat list)</option>
+                                        <option value="date" selected>Date</option>
+                                        <option value="week">Week</option>
+                                        <option value="month">Month</option>
+                                        <option value="client">Client/Pet</option>
+                                        <option value="service">Service Type</option>
+                                    </select>
                                     <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1207,7 +1205,52 @@
                                 </div>
                             </div>
                         </div>
-                        <small class="form-help">Build nested grouping by adding multiple levels. Each level can be sorted independently. Add a final "No Grouping" level to sort events.</small>
+                        <small class="form-help">Create a hierarchy by adding multiple levels (e.g., Client → Date).</small>
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
+                            <label>Sort Order</label>
+                            <button type="button" id="add-sort-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Add Sort
+                            </button>
+                        </div>
+                        <div id="sort-levels-container">
+                            <div class="sort-level" data-level="1">
+                                <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                                    <div class="level-reorder-buttons" style="display: none; flex-direction: column; gap: 2px;">
+                                        <button type="button" class="btn-icon-mini move-level-up" data-level="1" title="Move up" disabled>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                        </button>
+                                        <button type="button" class="btn-icon-mini move-level-down" data-level="1" title="Move down" disabled>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        </button>
+                                    </div>
+                                    <span class="sort-level-label" style="min-width: 20px;">1.</span>
+                                    <select class="select sort-level-select" data-level="1" style="flex: 1;">
+                                        <option value="time-asc" selected>Time (Early → Late)</option>
+                                        <option value="time-desc">Time (Late → Early)</option>
+                                        <option value="date-asc">Date (Old → New)</option>
+                                        <option value="date-desc">Date (New → Old)</option>
+                                        <option value="client-asc">Client (A → Z)</option>
+                                        <option value="client-desc">Client (Z → A)</option>
+                                        <option value="service-asc">Service (A → Z)</option>
+                                        <option value="service-desc">Service (Z → A)</option>
+                                    </select>
+                                    <button type="button" class="btn-icon remove-sort-level" data-level="1" style="display: none;" title="Remove this sort level">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-help">Events are sorted by each level in order. Add levels for tie-breakers.</small>
                     </div>
 
                     <div class="form-group">

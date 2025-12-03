@@ -201,7 +201,40 @@ class EventListExporter {
     }
 
     /**
-     * Sort events with primary and optional secondary sort fields
+     * Sort events with multiple sort levels
+     * @param {Array} events - Events to sort
+     * @param {Array|Object} sortLevels - Array of {sortBy, sortOrder} or single sort config
+     * @returns {Array} Sorted events
+     */
+    sortEventsMultiLevel(events, sortLevels) {
+        // Normalize to array
+        const levels = Array.isArray(sortLevels) ? sortLevels : [sortLevels];
+        
+        if (levels.length === 0) {
+            levels.push({ sortBy: 'time', sortOrder: 'asc' });
+        }
+
+        return [...events].sort((a, b) => {
+            for (const level of levels) {
+                const { sortBy, sortOrder } = level;
+                let comparison = this.compareEvents(a, b, sortBy);
+                
+                if (sortOrder === 'desc') {
+                    comparison = -comparison;
+                }
+                
+                if (comparison !== 0) {
+                    return comparison;
+                }
+            }
+            
+            // Final tie-breaker: sort by date/time
+            return new Date(a.start) - new Date(b.start);
+        });
+    }
+
+    /**
+     * Sort events with primary and optional secondary sort fields (legacy support)
      * @param {Array} events - Events to sort
      * @param {string} primarySort - Primary sort field
      * @param {string} secondarySort - Secondary sort field (optional)
@@ -238,10 +271,9 @@ class EventListExporter {
             endDate = null,
             includeTime = false,
             includeLocation = false,
-            groupBy = 'date', // 'none', 'date', 'client', 'service', 'week', 'month'
-            sortBy = 'date', // 'date', 'client', 'service', 'time'
-            secondarySort = null, // optional secondary sort field
-            sortOrder = 'asc', // 'asc' or 'desc'
+            groupBy = 'date', // 'none', 'date', 'client', 'service', 'week', 'month', or combinations like 'client-date'
+            groupSort = { sortBy: 'date', sortOrder: 'asc' }, // How to sort groups
+            eventSort = [{ sortBy: 'time', sortOrder: 'asc' }], // How to sort events (array of levels)
             workEventsOnly = true
         } = options;
 
@@ -272,8 +304,8 @@ class EventListExporter {
             return this.shouldIncludeEventOnDate(event, eventDate);
         });
 
-        // Sort events using combined sorting
-        filteredEvents = this.sortEvents(filteredEvents, sortBy, secondarySort, sortOrder);
+        // Sort events using multi-level sorting
+        filteredEvents = this.sortEventsMultiLevel(filteredEvents, eventSort);
 
         if (filteredEvents.length === 0) {
             return 'No events found in the selected date range.';
@@ -292,57 +324,17 @@ class EventListExporter {
         output += `Total: ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}\n`;
         output += `${'='.repeat(50)}\n\n`;
 
-        // Store sort options for use in grouped output
-        const sortOptions = { sortBy, secondarySort, sortOrder };
-
         // Check if groupBy contains multiple levels (e.g., "client-service-date")
         const groupLevels = groupBy.split('-').filter(level => level && level !== 'none');
         
-        // If multiple levels or non-standard combination, use dynamic grouping
-        const knownSingleLevels = ['none', 'client', 'service', 'date', 'week', 'month'];
-        const knownCombinations = ['client-service', 'client-date', 'service-client', 'service-date'];
-        
-        if (groupLevels.length > 2 || (groupLevels.length > 0 && !knownSingleLevels.includes(groupBy) && !knownCombinations.includes(groupBy))) {
-            // Use dynamic grouping for arbitrary levels
-            const groupSortOrders = options.groupSortOrders || groupLevels.map(() => 'asc');
-            output += this.generateDynamicGrouping(filteredEvents, groupLevels, includeTime, includeLocation, sortOptions, groupSortOrders);
+        // Always use dynamic grouping for consistency - it handles all cases
+        if (groupLevels.length > 0) {
+            output += this.generateDynamicGrouping(filteredEvents, groupLevels, includeTime, includeLocation, groupSort, eventSort);
             return output.trim();
         }
 
-        // Generate output based on groupBy option using specific methods
-        switch (groupBy) {
-            case 'client':
-                output += this.generateGroupedByClient(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'client-service':
-                output += this.generateGroupedByClientThenService(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'client-date':
-                output += this.generateGroupedByClientThenDate(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'service':
-                output += this.generateGroupedByService(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'service-client':
-                output += this.generateGroupedByServiceThenClient(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'service-date':
-                output += this.generateGroupedByServiceThenDate(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'week':
-                output += this.generateGroupedByWeek(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'month':
-                output += this.generateGroupedByMonth(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'date':
-                output += this.generateGroupedByDate(filteredEvents, includeTime, includeLocation, sortOptions);
-                break;
-            case 'none':
-            default:
-                output += this.generateSimpleList(filteredEvents, includeTime, includeLocation);
-                break;
-        }
+        // No grouping - flat list
+        output += this.generateSimpleList(filteredEvents, includeTime, includeLocation);
 
         return output.trim();
     }
@@ -1036,21 +1028,26 @@ class EventListExporter {
      * @param {Array} groupLevels - Array of grouping keys (e.g., ['client', 'service', 'date'])
      * @param {boolean} includeTime - Include time in output
      * @param {boolean} includeLocation - Include location in output
-     * @param {Object} sortOptions - Sort configuration
+     * @param {Object} groupSort - Sort configuration for groups { sortBy, sortOrder }
+     * @param {Object} eventSort - Sort configuration for events { sortBy, sortOrder }
      * @returns {string} Formatted output
      */
-    generateDynamicGrouping(events, groupLevels, includeTime, includeLocation, sortOptions = {}, groupSortOrders = []) {
+    generateDynamicGrouping(events, groupLevels, includeTime, includeLocation, groupSort = {}, eventSort = []) {
         if (!groupLevels || groupLevels.length === 0) {
             return this.generateSimpleList(events, includeTime, includeLocation);
         }
 
-        const { sortBy = 'time', sortOrder = 'asc' } = sortOptions;
+        const groupSortBy = groupSort.sortBy || 'date';
+        const groupSortOrder = groupSort.sortOrder || 'asc';
+        
+        // Normalize eventSort to array
+        const eventSortLevels = Array.isArray(eventSort) ? eventSort : [eventSort];
         
         // Build nested structure
         const grouped = this.buildNestedGroups(events, groupLevels);
         
         // Render nested structure
-        return this.renderNestedGroups(grouped, groupLevels, 0, includeTime, includeLocation, sortBy, sortOrder, groupSortOrders);
+        return this.renderNestedGroups(grouped, groupLevels, 0, includeTime, includeLocation, groupSortBy, groupSortOrder, eventSortLevels);
     }
 
     /**
@@ -1118,37 +1115,41 @@ class EventListExporter {
      * @param {number} depth - Current depth in hierarchy
      * @param {boolean} includeTime - Include time in output
      * @param {boolean} includeLocation - Include location in output
-     * @param {string} sortBy - Sort field for events (when we reach the leaf level)
-     * @param {string} sortOrder - Sort order for events
-     * @param {Array} groupSortOrders - Sort config for each grouping level
+     * @param {string} groupSortBy - Sort field for groups
+     * @param {string} groupSortOrder - Sort order for groups
+     * @param {Array} eventSortLevels - Array of sort configurations for events
      * @returns {string} Formatted output
      */
-    renderNestedGroups(data, groupLevels, depth, includeTime, includeLocation, sortBy, sortOrder, groupSortOrders = []) {
+    renderNestedGroups(data, groupLevels, depth, includeTime, includeLocation, groupSortBy, groupSortOrder, eventSortLevels) {
         let output = '';
         const indent = '  '.repeat(depth);
 
         // Base case: we have an array of events
         if (Array.isArray(data)) {
-            // Sort events based on sortBy and sortOrder
-            const sortedEvents = this.sortEvents(data, sortBy, null, sortOrder);
+            // Sort events using multi-level sorting
+            const sortedEvents = this.sortEventsMultiLevel(data, eventSortLevels);
             sortedEvents.forEach(event => {
                 const client = this.extractClientName(event.title);
                 const serviceType = this.formatServiceType(event);
                 const eventDate = new Date(event.start);
+                const date = this.formatDate(eventDate);
                 const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
                 const location = includeLocation && event.location ? `\n${indent}    📍 ${event.location}` : '';
 
-                output += `${indent}  • ${client} | ${serviceType}${time}${location}\n`;
+                // Include date in flat list or when date isn't a grouping level
+                const showDate = !groupLevels.includes('date') && !groupLevels.includes('week') && !groupLevels.includes('month');
+                const datePrefix = showDate ? `${date} | ` : '';
+
+                output += `${indent}  • ${datePrefix}${client} | ${serviceType}${time}${location}\n`;
             });
             return output;
         }
 
         // Recursive case: we have a Map of groups
         const currentGroupType = groupLevels[depth];
-        const currentSortConfig = groupSortOrders[depth] || { sortBy: 'alpha', sortOrder: 'asc' };
         
-        // Sort keys based on group type and sort config
-        const sortedKeys = this.sortGroupKeys(Array.from(data.keys()), currentGroupType, currentSortConfig.sortBy, currentSortConfig.sortOrder);
+        // Sort keys based on group type and the global group sort config
+        const sortedKeys = this.sortGroupKeys(Array.from(data.keys()), currentGroupType, groupSortBy, groupSortOrder);
         
         for (const key of sortedKeys) {
             const value = data.get(key);
@@ -1156,7 +1157,7 @@ class EventListExporter {
             const countLabel = count === 1 ? '1 event' : `${count} events`;
             
             output += `${indent}${key} (${countLabel})\n`;
-            output += this.renderNestedGroups(value, groupLevels, depth + 1, includeTime, includeLocation, sortBy, sortOrder, groupSortOrders);
+            output += this.renderNestedGroups(value, groupLevels, depth + 1, includeTime, includeLocation, groupSortBy, groupSortOrder, eventSortLevels);
             output += '\n';
         }
 
@@ -1166,28 +1167,30 @@ class EventListExporter {
     /**
      * Sort group keys based on group type and sort configuration
      * @param {Array} keys - Array of group keys to sort
-     * @param {string} groupType - Type of grouping ('date', 'week', 'month', 'client', 'service', 'none')
-     * @param {string} sortBy - Sort field ('date', 'time', 'alpha')
+     * @param {string} groupType - Type of grouping ('date', 'week', 'month', 'client', 'service')
+     * @param {string} sortBy - Sort field ('date', 'alpha', 'count')
      * @param {string} sortOrder - Sort order ('asc' or 'desc')
      * @returns {Array} Sorted keys
      */
-    sortGroupKeys(keys, groupType, sortBy = 'alpha', sortOrder = 'asc') {
+    sortGroupKeys(keys, groupType, sortBy = 'date', sortOrder = 'asc') {
         let sortedKeys = [...keys];
         
-        // Determine how to sort based on sortBy parameter
-        if (sortBy === 'date' || groupType === 'date' || groupType === 'week' || groupType === 'month') {
-            // Sort chronologically
+        // For date-based groups, always sort chronologically regardless of sortBy
+        // unless explicitly set to alpha
+        const isDateBasedGroup = groupType === 'date' || groupType === 'week' || groupType === 'month';
+        
+        if (isDateBasedGroup && sortBy !== 'alpha') {
+            // Sort chronologically for date-based groups
             sortedKeys.sort((a, b) => {
                 const dateA = this.parseGroupKeyToDate(a, groupType);
                 const dateB = this.parseGroupKeyToDate(b, groupType);
                 return dateA - dateB;
             });
-        } else if (sortBy === 'time') {
-            // For time sorting on events (when groupType is 'none')
-            // This is handled at the event level, not group level
+        } else if (sortBy === 'date' && !isDateBasedGroup) {
+            // For non-date groups with date sort, just use alpha
             sortedKeys.sort((a, b) => a.localeCompare(b));
         } else {
-            // Default: alphabetical sort
+            // Default: alphabetical sort for client/service groups
             sortedKeys.sort((a, b) => a.localeCompare(b));
         }
         

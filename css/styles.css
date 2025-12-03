@@ -3258,6 +3258,41 @@ label {
     transform: scale(0.95);
 }
 
+.btn-icon-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all 0.2s;
+}
+
+.btn-icon-mini:hover:not(:disabled) {
+    background: var(--primary-50);
+    border-color: var(--primary-300);
+    color: var(--primary-600);
+}
+
+.btn-icon-mini:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.btn-icon-mini:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.btn-icon-mini svg {
+    width: 12px;
+    height: 12px;
+}
+
 .btn-sm {
     font-size: 0.875rem;
     padding: 6px 12px;

@@ -384,6 +384,56 @@ class GPSAdminApp {
                 if (removeBtn) {
                     const level = parseInt(removeBtn.dataset.level);
                     this.removeGroupLevel(level);
+                    return;
+                }
+                
+                const moveUpBtn = e.target.closest('.move-group-up');
+                if (moveUpBtn) {
+                    const level = parseInt(moveUpBtn.dataset.level);
+                    this.reorderGroupLevel(level, 'up');
+                    return;
+                }
+                
+                const moveDownBtn = e.target.closest('.move-group-down');
+                if (moveDownBtn) {
+                    const level = parseInt(moveDownBtn.dataset.level);
+                    this.reorderGroupLevel(level, 'down');
+                    return;
+                }
+            });
+        }
+
+        // Export sort level management
+        const addSortLevelBtn = document.getElementById('add-sort-level');
+        if (addSortLevelBtn) {
+            addSortLevelBtn.addEventListener('click', () => {
+                this.addSortLevel();
+            });
+        }
+
+        // Setup remove buttons for sort levels (delegated event)
+        const sortLevelsContainer = document.getElementById('sort-levels-container');
+        if (sortLevelsContainer) {
+            sortLevelsContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.remove-sort-level');
+                if (removeBtn) {
+                    const level = parseInt(removeBtn.dataset.level);
+                    this.removeSortLevel(level);
+                    return;
+                }
+                
+                const moveUpBtn = e.target.closest('.move-level-up');
+                if (moveUpBtn) {
+                    const level = parseInt(moveUpBtn.dataset.level);
+                    this.reorderSortLevel(level, 'up');
+                    return;
+                }
+                
+                const moveDownBtn = e.target.closest('.move-level-down');
+                if (moveDownBtn) {
+                    const level = parseInt(moveDownBtn.dataset.level);
+                    this.reorderSortLevel(level, 'down');
+                    return;
                 }
             });
         }
@@ -2973,6 +3023,8 @@ class GPSAdminApp {
         // Reset form to defaults
         document.getElementById('export-work-events-only').checked = true;
         this.resetGroupLevels();
+        this.resetSortLevels();
+        
         document.getElementById('export-include-time').checked = true;
         document.getElementById('export-include-location').checked = false;
         document.getElementById('export-format').value = 'text';
@@ -3004,30 +3056,16 @@ class GPSAdminApp {
         levelDiv.className = 'group-level';
         levelDiv.dataset.level = '1';
         levelDiv.innerHTML = `
-            <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
-                <span class="group-level-label">1.</span>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
-                    <select class="select group-level-select" data-level="1">
-                        <option value="none">No Grouping</option>
-                        <option value="date" selected>Date</option>
-                        <option value="week">Week</option>
-                        <option value="month">Month</option>
-                        <option value="client">Client/Pet</option>
-                        <option value="service">Service Type</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
-                    <select class="select group-level-sort" data-level="1" style="font-size: 0.875rem;">
-                        <option value="date-asc">Date: Old→New</option>
-                        <option value="date-desc">Date: New→Old</option>
-                        <option value="time-asc">Time: Early→Late</option>
-                        <option value="time-desc">Time: Late→Early</option>
-                        <option value="alpha-asc" selected>A→Z</option>
-                        <option value="alpha-desc">Z→A</option>
-                    </select>
-                </div>
+            <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                <span class="group-level-label" style="min-width: 20px;">1.</span>
+                <select class="select group-level-select" data-level="1" style="flex: 1;">
+                    <option value="none">No grouping (flat list)</option>
+                    <option value="date" selected>Date</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="client">Client/Pet</option>
+                    <option value="service">Service Type</option>
+                </select>
                 <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -3041,12 +3079,10 @@ class GPSAdminApp {
         // Add change listener to update available options
         const select = levelDiv.querySelector('.group-level-select');
         select.addEventListener('change', () => {
-            this.updateSortOptionsForLevel(levelDiv);
             this.updateGroupingOptions();
         });
 
         this.updateGroupLevelButtons();
-        this.updateSortOptionsForLevel(levelDiv);
         this.updateGroupingOptions();
     }
 
@@ -3066,34 +3102,39 @@ class GPSAdminApp {
             return;
         }
 
+        // Get currently selected values to determine a good default
+        const existingSelects = container.querySelectorAll('.group-level-select');
+        const selectedValues = Array.from(existingSelects).map(s => s.value);
+        
+        // Choose first available option that's not already selected (exclude 'none' for additional levels)
+        const availableOptions = ['date', 'week', 'month', 'client', 'service'];
+        const defaultValue = availableOptions.find(opt => !selectedValues.includes(opt)) || 'date';
+
         const levelDiv = document.createElement('div');
         levelDiv.className = 'group-level';
         levelDiv.dataset.level = newLevel;
         levelDiv.innerHTML = `
-            <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
-                <span class="group-level-label">${newLevel}.</span>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
-                    <select class="select group-level-select" data-level="${newLevel}">
-                        <option value="none">No Grouping</option>
-                        <option value="date" ${newLevel === 2 ? 'selected' : ''}>Date</option>
-                        <option value="week">Week</option>
-                        <option value="month">Month</option>
-                        <option value="client">Client/Pet</option>
-                        <option value="service">Service Type</option>
-                    </select>
+            <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <button type="button" class="btn-icon btn-reorder move-group-up" data-level="${newLevel}" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move up">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-icon btn-reorder move-group-down" data-level="${newLevel}" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move down">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
                 </div>
-                <div>
-                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
-                    <select class="select group-level-sort" data-level="${newLevel}" style="font-size: 0.875rem;">
-                        <option value="date-asc">Date: Old→New</option>
-                        <option value="date-desc">Date: New→Old</option>
-                        <option value="time-asc">Time: Early→Late</option>
-                        <option value="time-desc">Time: Late→Early</option>
-                        <option value="alpha-asc" selected>A→Z</option>
-                        <option value="alpha-desc">Z→A</option>
-                    </select>
-                </div>
+                <span class="group-level-label" style="min-width: 20px;">${newLevel}.</span>
+                <select class="select group-level-select" data-level="${newLevel}" style="flex: 1;">
+                    <option value="date"${defaultValue === 'date' ? ' selected' : ''}>Date</option>
+                    <option value="week"${defaultValue === 'week' ? ' selected' : ''}>Week</option>
+                    <option value="month"${defaultValue === 'month' ? ' selected' : ''}>Month</option>
+                    <option value="client"${defaultValue === 'client' ? ' selected' : ''}>Client/Pet</option>
+                    <option value="service"${defaultValue === 'service' ? ' selected' : ''}>Service Type</option>
+                </select>
                 <button type="button" class="btn-icon remove-group-level" data-level="${newLevel}" title="Remove this grouping level">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -3107,12 +3148,10 @@ class GPSAdminApp {
         // Add change listener to update available options
         const select = levelDiv.querySelector('.group-level-select');
         select.addEventListener('change', () => {
-            this.updateSortOptionsForLevel(levelDiv);
             this.updateGroupingOptions();
         });
 
         this.updateGroupLevelButtons();
-        this.updateSortOptionsForLevel(levelDiv);
         this.updateGroupingOptions();
     }
 
@@ -3155,6 +3194,60 @@ class GPSAdminApp {
     }
 
     /**
+     * Reorder a grouping level
+     * @param {number} level - The level to move
+     * @param {string} direction - 'up' or 'down'
+     */
+    reorderGroupLevel(level, direction) {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const levels = Array.from(container.querySelectorAll('.group-level'));
+        const currentIndex = levels.findIndex(div => parseInt(div.dataset.level) === level);
+        
+        if (currentIndex === -1) return;
+        
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        
+        // Check bounds
+        if (targetIndex < 0 || targetIndex >= levels.length) return;
+        
+        // Swap the elements in the DOM
+        const currentElement = levels[currentIndex];
+        const targetElement = levels[targetIndex];
+        
+        if (direction === 'up') {
+            container.insertBefore(currentElement, targetElement);
+        } else {
+            container.insertBefore(targetElement, currentElement);
+        }
+        
+        // Renumber all levels
+        const allLevels = container.querySelectorAll('.group-level');
+        allLevels.forEach((levelDiv, index) => {
+            const newLevel = index + 1;
+            levelDiv.dataset.level = newLevel;
+            levelDiv.querySelector('.group-level-label').textContent = `${newLevel}.`;
+            levelDiv.querySelector('.group-level-select').dataset.level = newLevel;
+            const removeBtn = levelDiv.querySelector('.remove-group-level');
+            if (removeBtn) {
+                removeBtn.dataset.level = newLevel;
+            }
+            const moveUpBtn = levelDiv.querySelector('.move-group-up');
+            if (moveUpBtn) {
+                moveUpBtn.dataset.level = newLevel;
+            }
+            const moveDownBtn = levelDiv.querySelector('.move-group-down');
+            if (moveDownBtn) {
+                moveDownBtn.dataset.level = newLevel;
+            }
+        });
+        
+        this.updateGroupLevelButtons();
+        this.updateGroupingOptions();
+    }
+
+    /**
      * Update visibility of remove buttons based on number of levels
      */
     updateGroupLevelButtons() {
@@ -3163,11 +3256,26 @@ class GPSAdminApp {
 
         const levels = container.querySelectorAll('.group-level');
         const showRemoveButtons = levels.length > 1;
+        const showReorderButtons = levels.length > 1;
 
-        levels.forEach((levelDiv) => {
+        levels.forEach((levelDiv, index) => {
             const removeBtn = levelDiv.querySelector('.remove-group-level');
             if (removeBtn) {
                 removeBtn.style.display = showRemoveButtons ? 'inline-flex' : 'none';
+            }
+            
+            // Update reorder buttons visibility and disabled state
+            const moveUpBtn = levelDiv.querySelector('.move-group-up');
+            const moveDownBtn = levelDiv.querySelector('.move-group-down');
+            
+            if (moveUpBtn) {
+                moveUpBtn.style.display = showReorderButtons ? 'inline-flex' : 'none';
+                moveUpBtn.disabled = index === 0;  // Disable up button for first item
+            }
+            
+            if (moveDownBtn) {
+                moveDownBtn.style.display = showReorderButtons ? 'inline-flex' : 'none';
+                moveDownBtn.disabled = index === levels.length - 1;  // Disable down button for last item
             }
         });
 
@@ -3179,23 +3287,25 @@ class GPSAdminApp {
     }
 
     /**
-     * Update grouping options to disable already-selected values in other dropdowns
+     * Update grouping options to disable already-selected values in earlier levels
+     * (allows reusing options that appear later in the chain)
      */
     updateGroupingOptions() {
         const container = document.getElementById('group-levels-container');
         if (!container) return;
 
-        const selects = container.querySelectorAll('.group-level-select');
+        const selects = Array.from(container.querySelectorAll('.group-level-select'));
         
-        // Get all selected values (excluding 'none')
-        const selectedValues = Array.from(selects)
-            .map(select => select.value)
-            .filter(val => val !== 'none');
-
         // Update each select
-        selects.forEach(select => {
+        selects.forEach((select, currentIndex) => {
             const currentValue = select.value;
             const options = select.querySelectorAll('option');
+
+            // Get values selected in EARLIER levels only
+            const earlierSelectedValues = selects
+                .slice(0, currentIndex)  // Only look at earlier selects
+                .map(s => s.value)
+                .filter(val => val !== 'none');
 
             options.forEach(option => {
                 // Don't disable 'none' option
@@ -3204,8 +3314,8 @@ class GPSAdminApp {
                     return;
                 }
 
-                // Disable if selected elsewhere and not the current value
-                option.disabled = selectedValues.includes(option.value) && option.value !== currentValue;
+                // Disable if selected in an EARLIER level and not the current value
+                option.disabled = earlierSelectedValues.includes(option.value) && option.value !== currentValue;
             });
             
             // If current value is now disabled, select the first non-disabled option
@@ -3217,7 +3327,7 @@ class GPSAdminApp {
                     // Trigger change event to update sort options
                     const levelDiv = select.closest('.group-level');
                     if (levelDiv) {
-                        this.updateSortOptionsForLevel(levelDiv);
+                        this.updateGroupingOptions();
                     }
                 }
             }
@@ -3225,88 +3335,298 @@ class GPSAdminApp {
     }
 
     /**
-     * Update sort options based on the selected grouping for a level
-     * @param {HTMLElement} levelDiv - The level div element
+     * Reset sort levels to default (single level with "time-asc")
      */
-    updateSortOptionsForLevel(levelDiv) {
-        const groupSelect = levelDiv.querySelector('.group-level-select');
-        const sortSelect = levelDiv.querySelector('.group-level-sort');
+    resetSortLevels() {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        // Clear existing levels
+        container.innerHTML = '';
+
+        // Add first level
+        const levelDiv = document.createElement('div');
+        levelDiv.className = 'sort-level';
+        levelDiv.dataset.level = '1';
+        levelDiv.innerHTML = `
+            <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                <span class="sort-level-label" style="min-width: 20px;">1.</span>
+                <select class="select sort-level-select" data-level="1" style="flex: 1;">
+                    <option value="time-asc" selected>Time (Early → Late)</option>
+                    <option value="time-desc">Time (Late → Early)</option>
+                    <option value="date-asc">Date (Old → New)</option>
+                    <option value="date-desc">Date (New → Old)</option>
+                    <option value="client-asc">Client (A → Z)</option>
+                    <option value="client-desc">Client (Z → A)</option>
+                    <option value="service-asc">Service (A → Z)</option>
+                    <option value="service-desc">Service (Z → A)</option>
+                </select>
+                <button type="button" class="btn-icon remove-sort-level" data-level="1" style="display: none;" title="Remove this sort level">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+        container.appendChild(levelDiv);
+
+        this.updateSortLevelButtons();
+    }
+
+    /**
+     * Add a new sort level
+     */
+    addSortLevel() {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        const currentLevels = container.querySelectorAll('.sort-level').length;
+        const newLevel = currentLevels + 1;
+
+        // Maximum 3 levels for sorting
+        if (newLevel > 3) {
+            return;
+        }
+
+        // Get currently selected values to determine a good default
+        const existingSelects = container.querySelectorAll('.sort-level-select');
+        const selectedValues = Array.from(existingSelects).map(s => s.value.split('-')[0]);
         
-        if (!groupSelect || !sortSelect) return;
+        // Choose first available option that's not already selected
+        const availableOptions = ['time', 'date', 'client', 'service'];
+        const defaultField = availableOptions.find(opt => !selectedValues.includes(opt)) || 'date';
+        const defaultValue = `${defaultField}-asc`;
+
+        const levelDiv = document.createElement('div');
+        levelDiv.className = 'sort-level';
+        levelDiv.dataset.level = newLevel;
+        levelDiv.innerHTML = `
+            <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                <div style="display: flex; gap: 2px;">
+                    <button type="button" class="btn-icon-mini move-level-up" data-level="${newLevel}" title="Move up" disabled>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-icon-mini move-level-down" data-level="${newLevel}" title="Move down" disabled>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <span class="sort-level-label" style="min-width: 20px;">${newLevel}.</span>
+                <select class="select sort-level-select" data-level="${newLevel}" style="flex: 1;">
+                    <option value="time-asc"${defaultValue === 'time-asc' ? ' selected' : ''}>Time (Early → Late)</option>
+                    <option value="time-desc"${defaultValue === 'time-desc' ? ' selected' : ''}>Time (Late → Early)</option>
+                    <option value="date-asc"${defaultValue === 'date-asc' ? ' selected' : ''}>Date (Old → New)</option>
+                    <option value="date-desc"${defaultValue === 'date-desc' ? ' selected' : ''}>Date (New → Old)</option>
+                    <option value="client-asc"${defaultValue === 'client-asc' ? ' selected' : ''}>Client (A → Z)</option>
+                    <option value="client-desc"${defaultValue === 'client-desc' ? ' selected' : ''}>Client (Z → A)</option>
+                    <option value="service-asc"${defaultValue === 'service-asc' ? ' selected' : ''}>Service (A → Z)</option>
+                    <option value="service-desc"${defaultValue === 'service-desc' ? ' selected' : ''}>Service (Z → A)</option>
+                </select>
+                <button type="button" class="btn-icon remove-sort-level" data-level="${newLevel}" title="Remove this sort level">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+        container.appendChild(levelDiv);
+
+        this.updateSortLevelButtons();
+    }
+
+    /**
+     * Remove a sort level
+     */
+    removeSortLevel(level) {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        const levels = container.querySelectorAll('.sort-level');
         
-        const groupValue = groupSelect.value;
-        const currentSortValue = sortSelect.value;
+        // Don't allow removing if only one level
+        if (levels.length <= 1) {
+            return;
+        }
+
+        // Remove the specified level
+        const levelToRemove = container.querySelector(`.sort-level[data-level="${level}"]`);
+        if (levelToRemove) {
+            levelToRemove.remove();
+        }
+
+        // Renumber remaining levels
+        const remainingLevels = container.querySelectorAll('.sort-level');
+        remainingLevels.forEach((levelDiv, index) => {
+            const newLevel = index + 1;
+            levelDiv.dataset.level = newLevel;
+            levelDiv.querySelector('.sort-level-label').textContent = `${newLevel}.`;
+            levelDiv.querySelector('.sort-level-select').dataset.level = newLevel;
+            const removeBtn = levelDiv.querySelector('.remove-sort-level');
+            if (removeBtn) {
+                removeBtn.dataset.level = newLevel;
+            }
+        });
+
+        this.updateSortLevelButtons();
+    }
+
+    /**
+     * Reorder a sort level
+     * @param {number} level - The level to move
+     * @param {string} direction - 'up' or 'down'
+     */
+    reorderSortLevel(level, direction) {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        const levels = Array.from(container.querySelectorAll('.sort-level'));
+        const currentIndex = levels.findIndex(div => parseInt(div.dataset.level) === level);
         
-        // Define sort options for each group type
-        let sortOptions = [];
+        if (currentIndex === -1) return;
         
-        if (groupValue === 'date' || groupValue === 'week' || groupValue === 'month') {
-            // Date-based groupings: only date sort makes sense
-            sortOptions = [
-                { value: 'date-asc', label: 'Old→New' },
-                { value: 'date-desc', label: 'New→Old' }
-            ];
-        } else if (groupValue === 'client' || groupValue === 'service') {
-            // Text-based groupings: only alphabetical sort makes sense
-            sortOptions = [
-                { value: 'alpha-asc', label: 'A→Z' },
-                { value: 'alpha-desc', label: 'Z→A' }
-            ];
-        } else if (groupValue === 'none') {
-            // No grouping: sorting events themselves, so all options available
-            sortOptions = [
-                { value: 'date-asc', label: 'Date: Old→New' },
-                { value: 'date-desc', label: 'Date: New→Old' },
-                { value: 'time-asc', label: 'Time: Early→Late' },
-                { value: 'time-desc', label: 'Time: Late→Early' },
-                { value: 'alpha-asc', label: 'A→Z' },
-                { value: 'alpha-desc', label: 'Z→A' }
-            ];
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        
+        // Check bounds
+        if (targetIndex < 0 || targetIndex >= levels.length) return;
+        
+        // Swap the elements in the DOM
+        const currentElement = levels[currentIndex];
+        const targetElement = levels[targetIndex];
+        
+        if (direction === 'up') {
+            container.insertBefore(currentElement, targetElement);
+        } else {
+            container.insertBefore(targetElement, currentElement);
         }
         
-        // Rebuild sort dropdown
-        sortSelect.innerHTML = sortOptions.map(opt => 
-            `<option value="${opt.value}"${opt.value === currentSortValue ? ' selected' : ''}>${opt.label}</option>`
-        ).join('');
+        // Renumber all levels
+        const allLevels = container.querySelectorAll('.sort-level');
+        allLevels.forEach((levelDiv, index) => {
+            const newLevel = index + 1;
+            levelDiv.dataset.level = newLevel;
+            levelDiv.querySelector('.sort-level-label').textContent = `${newLevel}.`;
+            levelDiv.querySelector('.sort-level-select').dataset.level = newLevel;
+            const removeBtn = levelDiv.querySelector('.remove-sort-level');
+            if (removeBtn) {
+                removeBtn.dataset.level = newLevel;
+            }
+            const moveUpBtn = levelDiv.querySelector('.move-level-up');
+            if (moveUpBtn) {
+                moveUpBtn.dataset.level = newLevel;
+            }
+            const moveDownBtn = levelDiv.querySelector('.move-level-down');
+            if (moveDownBtn) {
+                moveDownBtn.dataset.level = newLevel;
+            }
+        });
         
-        // If current value is not in new options, select the first one
-        if (!sortOptions.find(opt => opt.value === currentSortValue)) {
-            sortSelect.value = sortOptions[0].value;
+        this.updateSortLevelButtons();
+    }
+
+    /**
+     * Update visibility of remove buttons based on number of sort levels
+     */
+    updateSortLevelButtons() {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        const levels = container.querySelectorAll('.sort-level');
+        const showRemoveButtons = levels.length > 1;
+        const showReorderButtons = levels.length > 1;
+
+        levels.forEach((levelDiv, index) => {
+            const removeBtn = levelDiv.querySelector('.remove-sort-level');
+            if (removeBtn) {
+                removeBtn.style.display = showRemoveButtons ? 'inline-flex' : 'none';
+            }
+            
+            // Update reorder buttons visibility and disabled state
+            const moveUpBtn = levelDiv.querySelector('.move-level-up');
+            const moveDownBtn = levelDiv.querySelector('.move-level-down');
+            
+            if (moveUpBtn) {
+                moveUpBtn.style.display = showReorderButtons ? 'inline-flex' : 'none';
+                moveUpBtn.disabled = index === 0;  // Disable up button for first item
+            }
+            
+            if (moveDownBtn) {
+                moveDownBtn.style.display = showReorderButtons ? 'inline-flex' : 'none';
+                moveDownBtn.disabled = index === levels.length - 1;  // Disable down button for last item
+            }
+        });
+
+        // Disable add button if at max levels
+        const addBtn = document.getElementById('add-sort-level');
+        if (addBtn) {
+            addBtn.disabled = levels.length >= 3;
         }
     }
 
     /**
      * Get the grouping configuration from the UI
-     * @returns {Array<{field: string, order: string}>} Array of grouping field and order objects
+     * @returns {Array<string>} Array of grouping field names
      */
     getGroupLevels() {
         const container = document.getElementById('group-levels-container');
-        if (!container) return [{field: 'date', sortBy: 'alpha', sortOrder: 'asc'}];
+        if (!container) return ['date'];
 
         const levelDivs = container.querySelectorAll('.group-level');
         const levels = [];
         
         levelDivs.forEach(div => {
             const fieldSelect = div.querySelector('.group-level-select');
-            const sortSelect = div.querySelector('.group-level-sort');
-            
             const field = fieldSelect ? fieldSelect.value : 'none';
             
-            // Parse sort value (e.g., "date-asc" -> {sortBy: "date", sortOrder: "asc"})
-            let sortBy = 'alpha';
-            let sortOrder = 'asc';
-            if (sortSelect) {
-                [sortBy, sortOrder] = sortSelect.value.split('-');
+            // Only add non-'none' values
+            if (field !== 'none') {
+                levels.push(field);
             }
-            
-            levels.push({
-                field: field,
-                sortBy: sortBy,
-                sortOrder: sortOrder
-            });
         });
         
-        return levels.length > 0 ? levels : [{field: 'date', sortBy: 'alpha', sortOrder: 'asc'}];
+        return levels;
+    }
+
+    /**
+     * Get the sort configuration from the UI
+     * @returns {Array<{sortBy: string, sortOrder: string}>} Array of sort configurations
+     */
+    getSortLevels() {
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return [{ sortBy: 'time', sortOrder: 'asc' }];
+
+        const levelDivs = container.querySelectorAll('.sort-level');
+        const levels = [];
+        
+        levelDivs.forEach(div => {
+            const sortSelect = div.querySelector('.sort-level-select');
+            if (sortSelect) {
+                const [sortBy, sortOrder] = sortSelect.value.split('-');
+                levels.push({ sortBy, sortOrder });
+            }
+        });
+        
+        return levels.length > 0 ? levels : [{ sortBy: 'time', sortOrder: 'asc' }];
+    }
+
+    /**
+     * Get the sort configuration from the UI (legacy format for compatibility)
+     * @returns {{groupSort: {sortBy: string, sortOrder: string}, eventSort: Array}}
+     */
+    getSortConfig() {
+        // Group sort is derived from the first sort level or defaults to chronological
+        const sortLevels = this.getSortLevels();
+        
+        // For groups, we use chronological sorting by default
+        // The sort levels apply to events within groups
+        return {
+            groupSort: { sortBy: 'date', sortOrder: 'asc' },
+            eventSort: sortLevels
+        };
     }
 
     /**
@@ -3328,21 +3648,15 @@ class GPSAdminApp {
             const includeTime = document.getElementById('export-include-time').checked;
             const includeLocation = document.getElementById('export-include-location').checked;
             const groupLevels = this.getGroupLevels();
+            const sortConfig = this.getSortConfig();
             const format = document.getElementById('export-format').value;
             const workEventsOnly = document.getElementById('export-work-events-only').checked;
 
-            // Build groupBy string from levels, filtering out 'none' (e.g., "client-service-date")
-            // If last level is 'none', it means sort events without additional grouping
-            const groupingLevels = groupLevels.filter(l => l.field !== 'none');
-            const groupBy = groupingLevels.length > 0 ? groupingLevels.map(l => l.field).join('-') : 'none';
+            // Build groupBy string from levels (e.g., "client-service-date") or 'none' if empty
+            const groupBy = groupLevels.length > 0 ? groupLevels.join('-') : 'none';
             
-            // Extract sort configuration
-            const groupSortOrders = groupLevels.map(l => ({ sortBy: l.sortBy, sortOrder: l.sortOrder }));
-            
-            // Find the last level's sort config for event sorting
-            const lastLevel = groupLevels[groupLevels.length - 1];
-            const sortBy = lastLevel ? lastLevel.sortBy : 'time';
-            const sortOrder = lastLevel ? lastLevel.sortOrder : 'asc';
+            // Extract sort configuration from the dedicated sort controls
+            const { groupSort, eventSort } = sortConfig;
 
             // Parse dates
             const startDate = new Date(startDateInput + 'T00:00:00');
@@ -3380,9 +3694,8 @@ class GPSAdminApp {
                 includeTime,
                 includeLocation,
                 groupBy,
-                groupSortOrders,
-                sortBy,
-                sortOrder,
+                groupSort,
+                eventSort,
                 workEventsOnly
             };
 
