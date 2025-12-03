@@ -3210,3 +3210,56 @@ label {
     color: #8B5CF6;
     font-weight: 600;
 }
+
+/* Export Group Levels */
+#group-levels-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.group-level {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.group-level-label {
+    font-weight: 600;
+    color: var(--gray-600);
+    min-width: 20px;
+    font-size: 0.875rem;
+}
+
+.group-level-select {
+    flex: 1;
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: transparent;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--gray-600);
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: var(--danger-50);
+    border-color: var(--danger-300);
+    color: var(--danger-600);
+}
+
+.btn-icon:active {
+    transform: scale(0.95);
+}
+
+.btn-sm {
+    font-size: 0.875rem;
+    padding: 6px 12px;
+    height: auto;
+}

@@ -368,6 +368,26 @@ class GPSAdminApp {
             });
         }
 
+        // Export group level management
+        const addGroupLevelBtn = document.getElementById('add-group-level');
+        if (addGroupLevelBtn) {
+            addGroupLevelBtn.addEventListener('click', () => {
+                this.addGroupLevel();
+            });
+        }
+
+        // Setup remove buttons for group levels (delegated event)
+        const groupLevelsContainer = document.getElementById('group-levels-container');
+        if (groupLevelsContainer) {
+            groupLevelsContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.remove-group-level');
+                if (removeBtn) {
+                    const level = parseInt(removeBtn.dataset.level);
+                    this.removeGroupLevel(level);
+                }
+            });
+        }
+
         // Export preview button
         const exportGeneratePreviewBtn = document.getElementById('export-generate-preview');
         if (exportGeneratePreviewBtn) {
@@ -2952,8 +2972,9 @@ class GPSAdminApp {
 
         // Reset form to defaults
         document.getElementById('export-work-events-only').checked = true;
-        document.getElementById('export-group-by').value = 'date';
-        document.getElementById('export-sort-by').value = 'date';
+        this.resetGroupLevels();
+        document.getElementById('export-sort-by').value = 'time';
+        document.getElementById('export-secondary-sort').value = '';
         document.getElementById('export-sort-order').value = 'asc';
         document.getElementById('export-include-time').checked = true;
         document.getElementById('export-include-location').checked = false;
@@ -2966,6 +2987,184 @@ class GPSAdminApp {
         document.getElementById('export-download-file').style.display = 'none';
 
         Utils.showModal('export-event-list-modal');
+    }
+
+    /**
+     * Reset group levels to default (single level with "date")
+     */
+    resetGroupLevels() {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        // Clear existing levels
+        container.innerHTML = '';
+
+        // Add first level
+        const levelDiv = document.createElement('div');
+        levelDiv.className = 'group-level';
+        levelDiv.dataset.level = '1';
+        levelDiv.innerHTML = `
+            <div style="display: flex; gap: var(--spacing-xs); align-items: center;">
+                <span class="group-level-label">1.</span>
+                <select class="select group-level-select" data-level="1" style="flex: 1;">
+                    <option value="none">No Grouping</option>
+                    <option value="date" selected>Date</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="client">Client/Pet</option>
+                    <option value="service">Service Type</option>
+                </select>
+                <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+        container.appendChild(levelDiv);
+
+        this.updateGroupLevelButtons();
+    }
+
+    /**
+     * Add a new grouping level
+     */
+    addGroupLevel() {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const currentLevels = container.querySelectorAll('.group-level').length;
+        const newLevel = currentLevels + 1;
+
+        // Maximum 4 levels to keep it manageable
+        if (newLevel > 4) {
+            alert('Maximum 4 grouping levels allowed');
+            return;
+        }
+
+        const levelDiv = document.createElement('div');
+        levelDiv.className = 'group-level';
+        levelDiv.dataset.level = newLevel;
+        levelDiv.innerHTML = `
+            <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
+                <span class="group-level-label">${newLevel}.</span>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
+                    <select class="select group-level-select" data-level="${newLevel}">
+                        <option value="none">No Grouping</option>
+                        <option value="date" ${newLevel === 2 ? 'selected' : ''}>Date</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="client">Client/Pet</option>
+                        <option value="service">Service Type</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
+                    <select class="select group-level-sort" data-level="${newLevel}" style="font-size: 0.875rem;">
+                        <option value="asc" selected>↑ A-Z / Old→New</option>
+                        <option value="desc">↓ Z-A / New→Old</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-icon remove-group-level" data-level="${newLevel}" title="Remove this grouping level">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        `;
+        container.appendChild(levelDiv);
+
+        this.updateGroupLevelButtons();
+    }
+
+    /**
+     * Remove a grouping level
+     */
+    removeGroupLevel(level) {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const levels = container.querySelectorAll('.group-level');
+        
+        // Don't allow removing if only one level
+        if (levels.length <= 1) {
+            return;
+        }
+
+        // Remove the specified level
+        const levelToRemove = container.querySelector(`.group-level[data-level="${level}"]`);
+        if (levelToRemove) {
+            levelToRemove.remove();
+        }
+
+        // Renumber remaining levels
+        const remainingLevels = container.querySelectorAll('.group-level');
+        remainingLevels.forEach((levelDiv, index) => {
+            const newLevel = index + 1;
+            levelDiv.dataset.level = newLevel;
+            levelDiv.querySelector('.group-level-label').textContent = `${newLevel}.`;
+            levelDiv.querySelector('.group-level-select').dataset.level = newLevel;
+            levelDiv.querySelector('.group-level-sort').dataset.level = newLevel;
+            const removeBtn = levelDiv.querySelector('.remove-group-level');
+            if (removeBtn) {
+                removeBtn.dataset.level = newLevel;
+            }
+        });
+
+        this.updateGroupLevelButtons();
+    }
+
+    /**
+     * Update visibility of remove buttons based on number of levels
+     */
+    updateGroupLevelButtons() {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const levels = container.querySelectorAll('.group-level');
+        const showRemoveButtons = levels.length > 1;
+
+        levels.forEach((levelDiv) => {
+            const removeBtn = levelDiv.querySelector('.remove-group-level');
+            if (removeBtn) {
+                removeBtn.style.display = showRemoveButtons ? 'inline-flex' : 'none';
+            }
+        });
+
+        // Disable add button if at max levels
+        const addBtn = document.getElementById('add-group-level');
+        if (addBtn) {
+            addBtn.disabled = levels.length >= 4;
+        }
+    }
+
+    /**
+     * Get the grouping configuration from the UI
+     * @returns {Array<{field: string, order: string}>} Array of grouping field and order objects
+     */
+    getGroupLevels() {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return [{field: 'date', order: 'asc'}];
+
+        const levelDivs = container.querySelectorAll('.group-level');
+        const levels = [];
+        
+        levelDivs.forEach(div => {
+            const fieldSelect = div.querySelector('.group-level-select');
+            const sortSelect = div.querySelector('.group-level-sort');
+            
+            if (fieldSelect && fieldSelect.value !== 'none') {
+                levels.push({
+                    field: fieldSelect.value,
+                    order: sortSelect ? sortSelect.value : 'asc'
+                });
+            }
+        });
+        
+        return levels.length > 0 ? levels : [{field: 'date', order: 'asc'}];
     }
 
     /**
@@ -2986,11 +3185,18 @@ class GPSAdminApp {
 
             const includeTime = document.getElementById('export-include-time').checked;
             const includeLocation = document.getElementById('export-include-location').checked;
-            const groupBy = document.getElementById('export-group-by').value;
+            const groupLevels = this.getGroupLevels();
             const sortBy = document.getElementById('export-sort-by').value;
+            const secondarySort = document.getElementById('export-secondary-sort').value;
             const sortOrder = document.getElementById('export-sort-order').value;
             const format = document.getElementById('export-format').value;
             const workEventsOnly = document.getElementById('export-work-events-only').checked;
+
+            // Build groupBy string from levels (e.g., "client-service-date")
+            const groupBy = groupLevels.length > 0 ? groupLevels.map(l => l.field).join('-') : 'date';
+            
+            // Extract sort orders for each grouping level
+            const groupSortOrders = groupLevels.map(l => l.order);
 
             // Parse dates
             const startDate = new Date(startDateInput + 'T00:00:00');
@@ -3028,7 +3234,9 @@ class GPSAdminApp {
                 includeTime,
                 includeLocation,
                 groupBy,
+                groupSortOrders,
                 sortBy,
+                secondarySort: secondarySort && secondarySort !== '' ? secondarySort : null,
                 sortOrder,
                 workEventsOnly
             };

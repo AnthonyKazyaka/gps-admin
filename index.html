@@ -1160,22 +1160,69 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
+                            <label>Group By</label>
+                            <button type="button" id="add-group-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Add Level
+                            </button>
+                        </div>
+                        <div id="group-levels-container">
+                            <!-- Group levels will be dynamically added here -->
+                            <div class="group-level" data-level="1">
+                                <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
+                                    <span class="group-level-label">1.</span>
+                                    <div>
+                                        <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
+                                        <select class="select group-level-select" data-level="1">
+                                            <option value="none">No Grouping</option>
+                                            <option value="date" selected>Date</option>
+                                            <option value="week">Week</option>
+                                            <option value="month">Month</option>
+                                            <option value="client">Client/Pet</option>
+                                            <option value="service">Service Type</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
+                                        <select class="select group-level-sort" data-level="1" style="font-size: 0.875rem;">
+                                            <option value="asc" selected>↑ A-Z / Old→New</option>
+                                            <option value="desc">↓ Z-A / New→Old</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="form-help">Build nested grouping by adding multiple levels. Each level can be sorted independently.</small>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group" style="flex: 1;">
-                            <label for="export-group-by">Group By</label>
-                            <select id="export-group-by" class="select">
-                                <option value="none">No Grouping</option>
-                                <option value="date" selected>Date</option>
-                                <option value="client">Client/Pet</option>
-                                <option value="service">Service Type</option>
-                                <option value="week">Week</option>
-                                <option value="month">Month</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label for="export-sort-by">Sort By</label>
+                            <label for="export-sort-by">Top Level Sorting</label>
                             <select id="export-sort-by" class="select">
                                 <option value="date" selected>Date</option>
+                                <option value="time">Time of Day</option>
+                                <option value="client">Client/Pet Name</option>
+                                <option value="service">Service Type</option>
+                            </select>
+                            <small class="form-help">How to sort individual events within each group</small>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="export-secondary-sort">Then By</label>
+                            <select id="export-secondary-sort" class="select">
+                                <option value="">—</option>
+                                <option value="date">Date</option>
+                                <option value="time">Time of Day</option>
                                 <option value="client">Client/Pet Name</option>
                                 <option value="service">Service Type</option>
                             </select>
@@ -1183,8 +1230,8 @@
                         <div class="form-group" style="flex: 0.6;">
                             <label for="export-sort-order">Order</label>
                             <select id="export-sort-order" class="select">
-                                <option value="asc">Ascending</option>
-                                <option value="desc">Descending</option>
+                                <option value="asc">A→Z / Old→New</option>
+                                <option value="desc">Z→A / New→Old</option>
                             </select>
                         </div>
                     </div>
@@ -1262,14 +1309,14 @@
     <script src="js/calculations.js?v=3.0"></script>
     <script src="js/rendering.js?v=3.4"></script>
     <script src="js/mock-data.js?v=1.0"></script>
-    <script src="js/core.js?v=3.2"></script>
+    <script src="js/core.js?v=3.3"></script>
     
     <!-- API Modules -->
     <script src="js/calendar-api.js?v=2.9"></script>
     <script src="js/maps-api.js?v=2.8"></script>
     <script src="js/workload-analyzer.js?v=2.8"></script>
     <script src="js/templates.js?v=2.8"></script>
-    <script src="js/event-list-export.js?v=1.1"></script>
+    <script src="js/event-list-export.js?v=1.2"></script>
 
     <!-- Initialize App -->
     <script>

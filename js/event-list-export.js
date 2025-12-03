@@ -142,19 +142,14 @@ class EventListExporter {
     /**
      * Format date for display
      * @param {Date} date - Date object
-     * @returns {string} Formatted date string
+     * @returns {string} Formatted date string (e.g., "11/07/2025")
      */
     formatDate(date) {
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-        const dayName = days[date.getDay()];
-        const month = months[date.getMonth()];
-        const day = date.getDate();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
 
-        return `${dayName} ${month} ${day}, ${year}`;
+        return `${month}/${day}/${year}`;
     }
 
     /**
@@ -176,6 +171,62 @@ class EventListExporter {
     }
 
     /**
+     * Compare two events by a given sort field
+     * @param {Object} a - First event
+     * @param {Object} b - Second event
+     * @param {string} sortField - Field to sort by ('date', 'client', 'service', 'time')
+     * @returns {number} Comparison result
+     */
+    compareEvents(a, b, sortField) {
+        switch (sortField) {
+            case 'client':
+                const clientA = this.extractClientName(a.title).toLowerCase();
+                const clientB = this.extractClientName(b.title).toLowerCase();
+                return clientA.localeCompare(clientB);
+            case 'service':
+                const serviceA = this.formatServiceType(a).toLowerCase();
+                const serviceB = this.formatServiceType(b).toLowerCase();
+                return serviceA.localeCompare(serviceB);
+            case 'time':
+                const timeA = new Date(a.start);
+                const timeB = new Date(b.start);
+                // Compare just the time portion (hours and minutes)
+                const minutesA = timeA.getHours() * 60 + timeA.getMinutes();
+                const minutesB = timeB.getHours() * 60 + timeB.getMinutes();
+                return minutesA - minutesB;
+            case 'date':
+            default:
+                return new Date(a.start) - new Date(b.start);
+        }
+    }
+
+    /**
+     * Sort events with primary and optional secondary sort fields
+     * @param {Array} events - Events to sort
+     * @param {string} primarySort - Primary sort field
+     * @param {string} secondarySort - Secondary sort field (optional)
+     * @param {string} sortOrder - 'asc' or 'desc'
+     * @returns {Array} Sorted events
+     */
+    sortEvents(events, primarySort, secondarySort = null, sortOrder = 'asc') {
+        return [...events].sort((a, b) => {
+            let comparison = this.compareEvents(a, b, primarySort);
+            
+            // Apply secondary sort if primary comparison is equal
+            if (comparison === 0 && secondarySort) {
+                comparison = this.compareEvents(a, b, secondarySort);
+            }
+            
+            // If still equal after secondary sort, fall back to date for consistency
+            if (comparison === 0 && primarySort !== 'date' && secondarySort !== 'date') {
+                comparison = this.compareEvents(a, b, 'date');
+            }
+            
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
+    }
+
+    /**
      * Generate text list of work events
      * @param {Array} events - Array of all events
      * @param {Object} options - Export options
@@ -188,7 +239,8 @@ class EventListExporter {
             includeTime = false,
             includeLocation = false,
             groupBy = 'date', // 'none', 'date', 'client', 'service', 'week', 'month'
-            sortBy = 'date', // 'date', 'client', 'service'
+            sortBy = 'date', // 'date', 'client', 'service', 'time'
+            secondarySort = null, // optional secondary sort field
             sortOrder = 'asc', // 'asc' or 'desc'
             workEventsOnly = true
         } = options;
@@ -220,37 +272,8 @@ class EventListExporter {
             return this.shouldIncludeEventOnDate(event, eventDate);
         });
 
-        // Sort events
-        filteredEvents.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (sortBy) {
-                case 'client':
-                    const clientA = this.extractClientName(a.title).toLowerCase();
-                    const clientB = this.extractClientName(b.title).toLowerCase();
-                    comparison = clientA.localeCompare(clientB);
-                    // Secondary sort by date
-                    if (comparison === 0) {
-                        comparison = new Date(a.start) - new Date(b.start);
-                    }
-                    break;
-                case 'service':
-                    const serviceA = this.formatServiceType(a).toLowerCase();
-                    const serviceB = this.formatServiceType(b).toLowerCase();
-                    comparison = serviceA.localeCompare(serviceB);
-                    // Secondary sort by date
-                    if (comparison === 0) {
-                        comparison = new Date(a.start) - new Date(b.start);
-                    }
-                    break;
-                case 'date':
-                default:
-                    comparison = new Date(a.start) - new Date(b.start);
-                    break;
-            }
-            
-            return sortOrder === 'desc' ? -comparison : comparison;
-        });
+        // Sort events using combined sorting
+        filteredEvents = this.sortEvents(filteredEvents, sortBy, secondarySort, sortOrder);
 
         if (filteredEvents.length === 0) {
             return 'No events found in the selected date range.';
@@ -269,22 +292,51 @@ class EventListExporter {
         output += `Total: ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}\n`;
         output += `${'='.repeat(50)}\n\n`;
 
-        // Generate output based on groupBy option
+        // Store sort options for use in grouped output
+        const sortOptions = { sortBy, secondarySort, sortOrder };
+
+        // Check if groupBy contains multiple levels (e.g., "client-service-date")
+        const groupLevels = groupBy.split('-').filter(level => level && level !== 'none');
+        
+        // If multiple levels or non-standard combination, use dynamic grouping
+        const knownSingleLevels = ['none', 'client', 'service', 'date', 'week', 'month'];
+        const knownCombinations = ['client-service', 'client-date', 'service-client', 'service-date'];
+        
+        if (groupLevels.length > 2 || (groupLevels.length > 0 && !knownSingleLevels.includes(groupBy) && !knownCombinations.includes(groupBy))) {
+            // Use dynamic grouping for arbitrary levels
+            const groupSortOrders = options.groupSortOrders || groupLevels.map(() => 'asc');
+            output += this.generateDynamicGrouping(filteredEvents, groupLevels, includeTime, includeLocation, sortOptions, groupSortOrders);
+            return output.trim();
+        }
+
+        // Generate output based on groupBy option using specific methods
         switch (groupBy) {
             case 'client':
-                output += this.generateGroupedByClient(filteredEvents, includeTime, includeLocation);
+                output += this.generateGroupedByClient(filteredEvents, includeTime, includeLocation, sortOptions);
+                break;
+            case 'client-service':
+                output += this.generateGroupedByClientThenService(filteredEvents, includeTime, includeLocation, sortOptions);
+                break;
+            case 'client-date':
+                output += this.generateGroupedByClientThenDate(filteredEvents, includeTime, includeLocation, sortOptions);
                 break;
             case 'service':
-                output += this.generateGroupedByService(filteredEvents, includeTime, includeLocation);
+                output += this.generateGroupedByService(filteredEvents, includeTime, includeLocation, sortOptions);
+                break;
+            case 'service-client':
+                output += this.generateGroupedByServiceThenClient(filteredEvents, includeTime, includeLocation, sortOptions);
+                break;
+            case 'service-date':
+                output += this.generateGroupedByServiceThenDate(filteredEvents, includeTime, includeLocation, sortOptions);
                 break;
             case 'week':
-                output += this.generateGroupedByWeek(filteredEvents, includeTime, includeLocation);
+                output += this.generateGroupedByWeek(filteredEvents, includeTime, includeLocation, sortOptions);
                 break;
             case 'month':
-                output += this.generateGroupedByMonth(filteredEvents, includeTime, includeLocation);
+                output += this.generateGroupedByMonth(filteredEvents, includeTime, includeLocation, sortOptions);
                 break;
             case 'date':
-                output += this.generateGroupedByDate(filteredEvents, includeTime, includeLocation);
+                output += this.generateGroupedByDate(filteredEvents, includeTime, includeLocation, sortOptions);
                 break;
             case 'none':
             default:
@@ -316,7 +368,8 @@ class EventListExporter {
     /**
      * Generate output grouped by date
      */
-    generateGroupedByDate(events, includeTime, includeLocation) {
+    generateGroupedByDate(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'time', secondarySort, sortOrder = 'asc' } = sortOptions;
         let output = '';
         const eventsByDate = new Map();
 
@@ -331,11 +384,14 @@ class EventListExporter {
         });
 
         for (const [date, dateEvents] of eventsByDate) {
-            const eventCount = dateEvents.length;
+            // Sort events within this date group
+            const sortedDateEvents = this.sortEvents(dateEvents, sortBy, secondarySort, sortOrder);
+            
+            const eventCount = sortedDateEvents.length;
             const countLabel = eventCount === 1 ? '1 event' : `${eventCount} events`;
             output += `${date} (${countLabel})\n`;
 
-            dateEvents.forEach(event => {
+            sortedDateEvents.forEach(event => {
                 const client = this.extractClientName(event.title);
                 const serviceType = this.formatServiceType(event);
                 const time = includeTime ? ` @ ${this.formatTime(new Date(event.start))}` : '';
@@ -352,46 +408,43 @@ class EventListExporter {
     /**
      * Generate output grouped by client
      */
-    generateGroupedByClient(events, includeTime, includeLocation) {
+    generateGroupedByClient(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
         let output = '';
         const clientGroups = new Map();
 
         events.forEach(event => {
             const client = this.extractClientName(event.title);
-            const serviceType = this.formatServiceType(event);
 
             if (!clientGroups.has(client)) {
-                clientGroups.set(client, new Map());
+                clientGroups.set(client, []);
             }
-
-            const serviceGroups = clientGroups.get(client);
-            if (!serviceGroups.has(serviceType)) {
-                serviceGroups.set(serviceType, []);
-            }
-
-            serviceGroups.get(serviceType).push(event);
+            clientGroups.get(client).push(event);
         });
 
-        // Sort clients alphabetically
-        const sortedClients = Array.from(clientGroups.keys()).sort();
+        // Sort clients alphabetically (or by event count if sortBy is set differently)
+        const sortedClients = Array.from(clientGroups.keys()).sort((a, b) => {
+            if (sortOrder === 'desc') {
+                return b.localeCompare(a);
+            }
+            return a.localeCompare(b);
+        });
 
         sortedClients.forEach(client => {
-            const serviceGroups = clientGroups.get(client);
-            const totalClientEvents = Array.from(serviceGroups.values()).reduce((sum, events) => sum + events.length, 0);
+            const clientEvents = clientGroups.get(client);
+            // Sort events within this client's group
+            const sortedClientEvents = this.sortEvents(clientEvents, sortBy, secondarySort, sortOrder);
+            
+            output += `${client} (${sortedClientEvents.length} visit${sortedClientEvents.length !== 1 ? 's' : ''})\n`;
 
-            output += `${client} (${totalClientEvents} visit${totalClientEvents !== 1 ? 's' : ''})\n`;
+            sortedClientEvents.forEach(event => {
+                const eventDate = new Date(event.start);
+                const date = this.formatDate(eventDate);
+                const serviceType = this.formatServiceType(event);
+                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
 
-            serviceGroups.forEach((events, serviceType) => {
-                output += `  ${serviceType}:\n`;
-
-                events.forEach(event => {
-                    const eventDate = new Date(event.start);
-                    const date = this.formatDate(eventDate);
-                    const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
-                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
-
-                    output += `    • ${date}${time}${location}\n`;
-                });
+                output += `  • ${date} - ${serviceType}${time}${location}\n`;
             });
 
             output += '\n';
@@ -403,7 +456,8 @@ class EventListExporter {
     /**
      * Generate output grouped by service type
      */
-    generateGroupedByService(events, includeTime, includeLocation) {
+    generateGroupedByService(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
         let output = '';
         const serviceGroups = new Map();
 
@@ -417,13 +471,21 @@ class EventListExporter {
         });
 
         // Sort service types alphabetically
-        const sortedServices = Array.from(serviceGroups.keys()).sort();
+        const sortedServices = Array.from(serviceGroups.keys()).sort((a, b) => {
+            if (sortOrder === 'desc') {
+                return b.localeCompare(a);
+            }
+            return a.localeCompare(b);
+        });
 
         sortedServices.forEach(serviceType => {
             const serviceEvents = serviceGroups.get(serviceType);
-            output += `${serviceType} (${serviceEvents.length} event${serviceEvents.length !== 1 ? 's' : ''})\n`;
+            // Sort events within this service group
+            const sortedServiceEvents = this.sortEvents(serviceEvents, sortBy, secondarySort, sortOrder);
+            
+            output += `${serviceType} (${sortedServiceEvents.length} event${sortedServiceEvents.length !== 1 ? 's' : ''})\n`;
 
-            serviceEvents.forEach(event => {
+            sortedServiceEvents.forEach(event => {
                 const eventDate = new Date(event.start);
                 const date = this.formatDate(eventDate);
                 const client = this.extractClientName(event.title);
@@ -442,7 +504,8 @@ class EventListExporter {
     /**
      * Generate output grouped by week
      */
-    generateGroupedByWeek(events, includeTime, includeLocation) {
+    generateGroupedByWeek(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
         let output = '';
         const weekGroups = new Map();
 
@@ -460,16 +523,19 @@ class EventListExporter {
             weekGroups.get(weekKey).events.push(event);
         });
 
-        // Sort weeks chronologically
-        const sortedWeeks = Array.from(weekGroups.entries()).sort((a, b) => a[1].start - b[1].start);
+        // Sort weeks chronologically (or reverse if descending)
+        const sortedWeeks = Array.from(weekGroups.entries()).sort((a, b) => {
+            const comparison = a[1].start - b[1].start;
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
 
         sortedWeeks.forEach(([weekKey, { events: weekEvents }]) => {
-            output += `Week of ${weekKey} (${weekEvents.length} event${weekEvents.length !== 1 ? 's' : ''})\n`;
+            // Sort events within this week
+            const sortedWeekEvents = this.sortEvents(weekEvents, sortBy, secondarySort, sortOrder);
+            
+            output += `Week of ${weekKey} (${sortedWeekEvents.length} event${sortedWeekEvents.length !== 1 ? 's' : ''})\n`;
 
-            // Sort events within week by date
-            weekEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
-
-            weekEvents.forEach(event => {
+            sortedWeekEvents.forEach(event => {
                 const eventDate = new Date(event.start);
                 const dayName = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
                 const day = eventDate.getDate();
@@ -490,7 +556,8 @@ class EventListExporter {
     /**
      * Generate output grouped by month
      */
-    generateGroupedByMonth(events, includeTime, includeLocation) {
+    generateGroupedByMonth(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
         let output = '';
         const monthGroups = new Map();
 
@@ -505,17 +572,20 @@ class EventListExporter {
             monthGroups.get(monthKey).events.push(event);
         });
 
-        // Sort months chronologically
-        const sortedMonths = Array.from(monthGroups.entries()).sort((a, b) => a[1].start - b[1].start);
+        // Sort months chronologically (or reverse if descending)
+        const sortedMonths = Array.from(monthGroups.entries()).sort((a, b) => {
+            const comparison = a[1].start - b[1].start;
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
 
         sortedMonths.forEach(([monthKey, { events: monthEvents }]) => {
-            output += `${monthKey} (${monthEvents.length} event${monthEvents.length !== 1 ? 's' : ''})\n`;
+            // Sort events within this month
+            const sortedMonthEvents = this.sortEvents(monthEvents, sortBy, secondarySort, sortOrder);
+            
+            output += `${monthKey} (${sortedMonthEvents.length} event${sortedMonthEvents.length !== 1 ? 's' : ''})\n`;
             output += `${'─'.repeat(30)}\n`;
 
-            // Sort events within month by date
-            monthEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
-
-            monthEvents.forEach(event => {
+            sortedMonthEvents.forEach(event => {
                 const eventDate = new Date(event.start);
                 const date = this.formatDate(eventDate);
                 const client = this.extractClientName(event.title);
@@ -524,6 +594,244 @@ class EventListExporter {
                 const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
 
                 output += `  • ${date}: ${client} - ${serviceType}${time}${location}\n`;
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by client, then by service type
+     */
+    generateGroupedByClientThenService(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
+        let output = '';
+        const clientGroups = new Map();
+
+        // Group by client
+        events.forEach(event => {
+            const client = this.extractClientName(event.title);
+            if (!clientGroups.has(client)) {
+                clientGroups.set(client, new Map());
+            }
+
+            // Then group by service within each client
+            const serviceGroups = clientGroups.get(client);
+            const serviceType = this.formatServiceType(event);
+            if (!serviceGroups.has(serviceType)) {
+                serviceGroups.set(serviceType, []);
+            }
+            serviceGroups.get(serviceType).push(event);
+        });
+
+        // Sort clients alphabetically
+        const sortedClients = Array.from(clientGroups.keys()).sort();
+
+        sortedClients.forEach(client => {
+            const serviceGroups = clientGroups.get(client);
+            const totalClientEvents = Array.from(serviceGroups.values()).reduce((sum, events) => sum + events.length, 0);
+
+            output += `${client} (${totalClientEvents} visit${totalClientEvents !== 1 ? 's' : ''})\n`;
+
+            // Sort services alphabetically
+            const sortedServices = Array.from(serviceGroups.keys()).sort();
+
+            sortedServices.forEach(serviceType => {
+                const serviceEvents = serviceGroups.get(serviceType);
+                // Sort events within this service group
+                const sortedServiceEvents = this.sortEvents(serviceEvents, sortBy, secondarySort, sortOrder);
+
+                output += `  ${serviceType} (${sortedServiceEvents.length}):\n`;
+
+                sortedServiceEvents.forEach(event => {
+                    const eventDate = new Date(event.start);
+                    const date = this.formatDate(eventDate);
+                    const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
+
+                    output += `    • ${date}${time}${location}\n`;
+                });
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by client, then by date
+     */
+    generateGroupedByClientThenDate(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'time', secondarySort, sortOrder = 'asc' } = sortOptions;
+        let output = '';
+        const clientGroups = new Map();
+
+        // Group by client
+        events.forEach(event => {
+            const client = this.extractClientName(event.title);
+            if (!clientGroups.has(client)) {
+                clientGroups.set(client, new Map());
+            }
+
+            // Then group by date within each client
+            const dateGroups = clientGroups.get(client);
+            const eventDate = new Date(event.start);
+            const dateKey = this.formatDate(eventDate);
+            if (!dateGroups.has(dateKey)) {
+                dateGroups.set(dateKey, []);
+            }
+            dateGroups.get(dateKey).push(event);
+        });
+
+        // Sort clients alphabetically
+        const sortedClients = Array.from(clientGroups.keys()).sort();
+
+        sortedClients.forEach(client => {
+            const dateGroups = clientGroups.get(client);
+            const totalClientEvents = Array.from(dateGroups.values()).reduce((sum, events) => sum + events.length, 0);
+
+            output += `${client} (${totalClientEvents} visit${totalClientEvents !== 1 ? 's' : ''})\n`;
+
+            // Sort dates chronologically
+            const sortedDates = Array.from(dateGroups.entries()).sort((a, b) => {
+                return new Date(a[0]) - new Date(b[0]);
+            });
+
+            sortedDates.forEach(([dateKey, dateEvents]) => {
+                // Sort events within this date group
+                const sortedDateEvents = this.sortEvents(dateEvents, sortBy, secondarySort, sortOrder);
+
+                output += `  ${dateKey} (${sortedDateEvents.length}):\n`;
+
+                sortedDateEvents.forEach(event => {
+                    const serviceType = this.formatServiceType(event);
+                    const time = includeTime ? ` @ ${this.formatTime(new Date(event.start))}` : '';
+                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
+
+                    output += `    • ${serviceType}${time}${location}\n`;
+                });
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by service type, then by client
+     */
+    generateGroupedByServiceThenClient(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'date', secondarySort, sortOrder = 'asc' } = sortOptions;
+        let output = '';
+        const serviceGroups = new Map();
+
+        // Group by service
+        events.forEach(event => {
+            const serviceType = this.formatServiceType(event);
+            if (!serviceGroups.has(serviceType)) {
+                serviceGroups.set(serviceType, new Map());
+            }
+
+            // Then group by client within each service
+            const clientGroups = serviceGroups.get(serviceType);
+            const client = this.extractClientName(event.title);
+            if (!clientGroups.has(client)) {
+                clientGroups.set(client, []);
+            }
+            clientGroups.get(client).push(event);
+        });
+
+        // Sort services alphabetically
+        const sortedServices = Array.from(serviceGroups.keys()).sort();
+
+        sortedServices.forEach(serviceType => {
+            const clientGroups = serviceGroups.get(serviceType);
+            const totalServiceEvents = Array.from(clientGroups.values()).reduce((sum, events) => sum + events.length, 0);
+
+            output += `${serviceType} (${totalServiceEvents} event${totalServiceEvents !== 1 ? 's' : ''})\n`;
+
+            // Sort clients alphabetically
+            const sortedClients = Array.from(clientGroups.keys()).sort();
+
+            sortedClients.forEach(client => {
+                const clientEvents = clientGroups.get(client);
+                // Sort events within this client group
+                const sortedClientEvents = this.sortEvents(clientEvents, sortBy, secondarySort, sortOrder);
+
+                output += `  ${client} (${sortedClientEvents.length}):\n`;
+
+                sortedClientEvents.forEach(event => {
+                    const eventDate = new Date(event.start);
+                    const date = this.formatDate(eventDate);
+                    const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
+
+                    output += `    • ${date}${time}${location}\n`;
+                });
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by service type, then by date
+     */
+    generateGroupedByServiceThenDate(events, includeTime, includeLocation, sortOptions = {}) {
+        const { sortBy = 'time', secondarySort, sortOrder = 'asc' } = sortOptions;
+        let output = '';
+        const serviceGroups = new Map();
+
+        // Group by service
+        events.forEach(event => {
+            const serviceType = this.formatServiceType(event);
+            if (!serviceGroups.has(serviceType)) {
+                serviceGroups.set(serviceType, new Map());
+            }
+
+            // Then group by date within each service
+            const dateGroups = serviceGroups.get(serviceType);
+            const eventDate = new Date(event.start);
+            const dateKey = this.formatDate(eventDate);
+            if (!dateGroups.has(dateKey)) {
+                dateGroups.set(dateKey, []);
+            }
+            dateGroups.get(dateKey).push(event);
+        });
+
+        // Sort services alphabetically
+        const sortedServices = Array.from(serviceGroups.keys()).sort();
+
+        sortedServices.forEach(serviceType => {
+            const dateGroups = serviceGroups.get(serviceType);
+            const totalServiceEvents = Array.from(dateGroups.values()).reduce((sum, events) => sum + events.length, 0);
+
+            output += `${serviceType} (${totalServiceEvents} event${totalServiceEvents !== 1 ? 's' : ''})\n`;
+
+            // Sort dates chronologically
+            const sortedDates = Array.from(dateGroups.entries()).sort((a, b) => {
+                return new Date(a[0]) - new Date(b[0]);
+            });
+
+            sortedDates.forEach(([dateKey, dateEvents]) => {
+                // Sort events within this date group
+                const sortedDateEvents = this.sortEvents(dateEvents, sortBy, secondarySort, sortOrder);
+
+                output += `  ${dateKey} (${sortedDateEvents.length}):\n`;
+
+                sortedDateEvents.forEach(event => {
+                    const client = this.extractClientName(event.title);
+                    const time = includeTime ? ` @ ${this.formatTime(new Date(event.start))}` : '';
+                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
+
+                    output += `    • ${client}${time}${location}\n`;
+                });
             });
 
             output += '\n';
@@ -547,7 +855,31 @@ class EventListExporter {
      * Format date in short format (Mon Jan 1)
      */
     formatShortDate(date) {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    }
+
+    /**
+     * Get week label for grouping
+     * @param {Date} date - Date to get week label for
+     * @returns {string} Week label (e.g., "Week of 11/04/2025")
+     */
+    getWeekLabel(date) {
+        const weekStart = this.getWeekStart(date);
+        return `Week of ${this.formatDate(weekStart)}`;
+    }
+
+    /**
+     * Get month label for grouping
+     * @param {Date} date - Date to get month label for
+     * @returns {string} Month label (e.g., "11/2025")
+     */
+    getMonthLabel(date) {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${year}`;
     }
 
     /**
@@ -562,6 +894,7 @@ class EventListExporter {
             endDate = null,
             workEventsOnly = true,
             sortBy = 'date',
+            secondarySort = null,
             sortOrder = 'asc',
             includeLocation = false
         } = options;
@@ -585,35 +918,8 @@ class EventListExporter {
             return true;
         });
 
-        // Sort events
-        filteredEvents.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (sortBy) {
-                case 'client':
-                    const clientA = this.extractClientName(a.title).toLowerCase();
-                    const clientB = this.extractClientName(b.title).toLowerCase();
-                    comparison = clientA.localeCompare(clientB);
-                    if (comparison === 0) {
-                        comparison = new Date(a.start) - new Date(b.start);
-                    }
-                    break;
-                case 'service':
-                    const serviceA = this.formatServiceType(a).toLowerCase();
-                    const serviceB = this.formatServiceType(b).toLowerCase();
-                    comparison = serviceA.localeCompare(serviceB);
-                    if (comparison === 0) {
-                        comparison = new Date(a.start) - new Date(b.start);
-                    }
-                    break;
-                case 'date':
-                default:
-                    comparison = new Date(a.start) - new Date(b.start);
-                    break;
-            }
-            
-            return sortOrder === 'desc' ? -comparison : comparison;
-        });
+        // Sort events using combined sorting
+        filteredEvents = this.sortEvents(filteredEvents, sortBy, secondarySort, sortOrder);
 
         // CSV header
         let csv = includeLocation 
@@ -722,6 +1028,217 @@ class EventListExporter {
 
         // Clean up
         setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+
+    /**
+     * Generate output with dynamic multi-level grouping
+     * @param {Array} events - Events to group
+     * @param {Array} groupLevels - Array of grouping keys (e.g., ['client', 'service', 'date'])
+     * @param {boolean} includeTime - Include time in output
+     * @param {boolean} includeLocation - Include location in output
+     * @param {Object} sortOptions - Sort configuration
+     * @returns {string} Formatted output
+     */
+    generateDynamicGrouping(events, groupLevels, includeTime, includeLocation, sortOptions = {}, groupSortOrders = []) {
+        if (!groupLevels || groupLevels.length === 0) {
+            return this.generateSimpleList(events, includeTime, includeLocation);
+        }
+
+        // Ensure we have sort orders for all levels (default to 'asc')
+        const sortOrders = groupLevels.map((_, i) => groupSortOrders[i] || 'asc');
+
+        const { sortBy = 'time', secondarySort, sortOrder = 'asc' } = sortOptions;
+        
+        // Build nested structure
+        const grouped = this.buildNestedGroups(events, groupLevels);
+        
+        // Render nested structure
+        return this.renderNestedGroups(grouped, groupLevels, 0, includeTime, includeLocation, sortBy, secondarySort, sortOrder, sortOrders);
+    }
+
+    /**
+     * Build nested group structure recursively
+     * @param {Array} events - Events to group
+     * @param {Array} groupLevels - Array of grouping keys
+     * @returns {Map} Nested Map structure
+     */
+    buildNestedGroups(events, groupLevels) {
+        if (groupLevels.length === 0) {
+            return events;
+        }
+
+        const [currentLevel, ...remainingLevels] = groupLevels;
+        const grouped = new Map();
+
+        events.forEach(event => {
+            const key = this.getGroupKey(event, currentLevel);
+            
+            if (!grouped.has(key)) {
+                grouped.set(key, []);
+            }
+            grouped.get(key).push(event);
+        });
+
+        // Recursively group remaining levels
+        if (remainingLevels.length > 0) {
+            for (const [key, groupEvents] of grouped) {
+                grouped.set(key, this.buildNestedGroups(groupEvents, remainingLevels));
+            }
+        }
+
+        return grouped;
+    }
+
+    /**
+     * Get grouping key for an event based on group type
+     * @param {Object} event - Event to get key for
+     * @param {string} groupType - Type of grouping ('client', 'service', 'date', 'week', 'month')
+     * @returns {string} Group key
+     */
+    getGroupKey(event, groupType) {
+        const eventDate = new Date(event.start);
+        
+        switch (groupType) {
+            case 'client':
+                return this.extractClientName(event.title);
+            case 'service':
+                return this.formatServiceType(event);
+            case 'date':
+                return this.formatDate(eventDate);
+            case 'week':
+                return this.getWeekLabel(eventDate);
+            case 'month':
+                return this.getMonthLabel(eventDate);
+            default:
+                return 'Unknown';
+        }
+    }
+
+    /**
+     * Render nested groups recursively
+     * @param {Map|Array} data - Nested Map or array of events
+     * @param {Array} groupLevels - Array of grouping keys
+     * @param {number} depth - Current depth in hierarchy
+     * @param {boolean} includeTime - Include time in output
+     * @param {boolean} includeLocation - Include location in output
+     * @param {string} sortBy - Primary sort field
+     * @param {string} secondarySort - Secondary sort field
+     * @param {string} sortOrder - Sort order
+     * @param {Array} groupSortOrders - Sort order for each grouping level
+     * @returns {string} Formatted output
+     */
+    renderNestedGroups(data, groupLevels, depth, includeTime, includeLocation, sortBy, secondarySort, sortOrder, groupSortOrders = []) {
+        let output = '';
+        const indent = '  '.repeat(depth);
+
+        // Base case: we have an array of events
+        if (Array.isArray(data)) {
+            const sortedEvents = this.sortEvents(data, sortBy, secondarySort, sortOrder);
+            sortedEvents.forEach(event => {
+                const client = this.extractClientName(event.title);
+                const serviceType = this.formatServiceType(event);
+                const eventDate = new Date(event.start);
+                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                const location = includeLocation && event.location ? `\n${indent}    📍 ${event.location}` : '';
+
+                output += `${indent}  • ${client} | ${serviceType}${time}${location}\n`;
+            });
+            return output;
+        }
+
+        // Recursive case: we have a Map of groups
+        const currentGroupType = groupLevels[depth];
+        const currentSortOrder = groupSortOrders[depth] || 'asc';
+        
+        // Sort keys based on group type
+        const sortedKeys = this.sortGroupKeys(Array.from(data.keys()), currentGroupType, currentSortOrder);
+        
+        for (const key of sortedKeys) {
+            const value = data.get(key);
+            const count = this.countEvents(value);
+            const countLabel = count === 1 ? '1 event' : `${count} events`;
+            
+            output += `${indent}${key} (${countLabel})\n`;
+            output += this.renderNestedGroups(value, groupLevels, depth + 1, includeTime, includeLocation, sortBy, secondarySort, sortOrder, groupSortOrders);
+            output += '\n';
+        }
+
+        return output;
+    }
+
+    /**
+     * Sort group keys based on group type and order
+     * @param {Array} keys - Array of group keys to sort
+     * @param {string} groupType - Type of grouping ('date', 'week', 'month', 'client', 'service')
+     * @param {string} order - Sort order ('asc' or 'desc')
+     * @returns {Array} Sorted keys
+     */
+    sortGroupKeys(keys, groupType, order = 'asc') {
+        let sortedKeys;
+        
+        // For date-based groupings, parse and sort chronologically
+        if (groupType === 'date' || groupType === 'week' || groupType === 'month') {
+            sortedKeys = keys.sort((a, b) => {
+                const dateA = this.parseGroupKeyToDate(a, groupType);
+                const dateB = this.parseGroupKeyToDate(b, groupType);
+                return dateA - dateB;
+            });
+        } else {
+            // For text-based groupings (client, service), sort alphabetically
+            sortedKeys = keys.sort((a, b) => a.localeCompare(b));
+        }
+        
+        // Reverse if descending
+        if (order === 'desc') {
+            sortedKeys.reverse();
+        }
+        
+        return sortedKeys;
+    }
+
+    /**
+     * Parse a group key string back into a Date object for comparison
+     * @param {string} key - Group key string (e.g., "11/07/2025", "Week of 11/04/2025", "11/2025")
+     * @param {string} groupType - Type of grouping
+     * @returns {Date} Parsed date
+     */
+    parseGroupKeyToDate(key, groupType) {
+        if (groupType === 'date') {
+            // Format: "11/07/2025" (MM/DD/YYYY)
+            const [month, day, year] = key.split('/').map(Number);
+            return new Date(year, month - 1, day);
+        } else if (groupType === 'week') {
+            // Format: "Week of 11/04/2025"
+            const match = key.match(/Week of (.+)/);
+            if (match) {
+                const [month, day, year] = match[1].split('/').map(Number);
+                return new Date(year, month - 1, day);
+            }
+        } else if (groupType === 'month') {
+            // Format: "11/2025" (MM/YYYY)
+            const [month, year] = key.split('/').map(Number);
+            return new Date(year, month - 1, 1);
+        }
+        
+        // Fallback: try to parse as-is
+        return new Date(key);
+    }
+
+    /**
+     * Count total events in nested structure
+     * @param {Map|Array} data - Nested Map or array of events
+     * @returns {number} Total event count
+     */
+    countEvents(data) {
+        if (Array.isArray(data)) {
+            return data.length;
+        }
+
+        let count = 0;
+        for (const value of data.values()) {
+            count += this.countEvents(value);
+        }
+        return count;
     }
 }
 
