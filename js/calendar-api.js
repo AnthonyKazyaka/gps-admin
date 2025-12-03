@@ -607,6 +607,78 @@ class CalendarAPI {
             throw error;
         }
     }
+
+    /**
+     * Fetch events from all selected calendars for a specific date range
+     * Useful for exporting events from arbitrary date ranges (e.g., all of 2024)
+     * @param {Date} startDate - Start of date range
+     * @param {Date} endDate - End of date range
+     * @param {Array} calendarIds - Optional array of calendar IDs (uses selected calendars if not provided)
+     * @returns {Array} Combined events from all calendars within the date range
+     */
+    async fetchAllCalendarEvents(startDate, endDate, calendarIds = null) {
+        try {
+            console.log(`📡 Fetching events from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}...`);
+            const allEvents = [];
+
+            // Use provided calendar IDs or get from stored selection
+            const selectedCalendarIds = calendarIds || this.getSelectedCalendarIds();
+            
+            if (!selectedCalendarIds || selectedCalendarIds.length === 0) {
+                console.warn('No calendars selected, using primary calendar');
+                selectedCalendarIds.push('primary');
+            }
+
+            // Get calendar list to map IDs to names
+            const calendars = await this.listCalendars();
+            const calendarMap = new Map(calendars.map(cal => [cal.id, cal.name]));
+
+            // Ensure dates are properly set
+            const timeMin = new Date(startDate);
+            timeMin.setHours(0, 0, 0, 0);
+            
+            const timeMax = new Date(endDate);
+            timeMax.setHours(23, 59, 59, 999);
+
+            // Fetch events from each selected calendar
+            for (const calendarId of selectedCalendarIds) {
+                const calendarName = calendarMap.get(calendarId) || calendarId;
+                console.log(`   Fetching from: ${calendarName}`);
+
+                try {
+                    const events = await this.fetchEvents(calendarId, timeMin, timeMax, calendarName);
+                    allEvents.push(...events);
+                    console.log(`   ✅ Loaded ${events.length} events from ${calendarName}`);
+                } catch (error) {
+                    console.error(`   ❌ Error loading events from ${calendarName}:`, error);
+                    // Continue with other calendars even if one fails
+                }
+            }
+
+            console.log(`✅ Successfully loaded ${allEvents.length} total events for date range`);
+            return allEvents;
+
+        } catch (error) {
+            console.error('❌ Error fetching calendar events for date range:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get currently selected calendar IDs from storage
+     * @returns {Array} Array of selected calendar IDs
+     */
+    getSelectedCalendarIds() {
+        try {
+            const stored = localStorage.getItem('gpsAdmin_selectedCalendars');
+            if (stored) {
+                return JSON.parse(stored);
+            }
+        } catch (e) {
+            console.warn('Could not read selected calendars from storage');
+        }
+        return ['primary'];
+    }
 }
 
 // Make available globally

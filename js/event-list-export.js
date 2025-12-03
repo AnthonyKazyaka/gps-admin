@@ -186,13 +186,17 @@ class EventListExporter {
             startDate = null,
             endDate = null,
             includeTime = false,
-            groupBy = 'client', // 'client' or 'date'
-            sortOrder = 'asc' // 'asc' or 'desc'
+            includeLocation = false,
+            groupBy = 'date', // 'none', 'date', 'client', 'service', 'week', 'month'
+            sortBy = 'date', // 'date', 'client', 'service'
+            sortOrder = 'asc', // 'asc' or 'desc'
+            workEventsOnly = true
         } = options;
 
-        // Filter for work events only
-        let workEvents = events.filter(event => {
-            if (!this.eventProcessor.isWorkEvent(event)) {
+        // Filter events
+        let filteredEvents = events.filter(event => {
+            // Filter by work events if enabled
+            if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) {
                 return false;
             }
 
@@ -210,135 +214,344 @@ class EventListExporter {
             return true;
         });
 
-        // Sort events by start date
-        workEvents.sort((a, b) => {
-            const dateA = new Date(a.start);
-            const dateB = new Date(b.start);
-            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        // Filter out overnight events not on their start date
+        filteredEvents = filteredEvents.filter(event => {
+            const eventDate = new Date(event.start);
+            return this.shouldIncludeEventOnDate(event, eventDate);
         });
 
-        if (workEvents.length === 0) {
-            return 'No work events found in the selected date range.';
+        // Sort events
+        filteredEvents.sort((a, b) => {
+            let comparison = 0;
+            
+            switch (sortBy) {
+                case 'client':
+                    const clientA = this.extractClientName(a.title).toLowerCase();
+                    const clientB = this.extractClientName(b.title).toLowerCase();
+                    comparison = clientA.localeCompare(clientB);
+                    // Secondary sort by date
+                    if (comparison === 0) {
+                        comparison = new Date(a.start) - new Date(b.start);
+                    }
+                    break;
+                case 'service':
+                    const serviceA = this.formatServiceType(a).toLowerCase();
+                    const serviceB = this.formatServiceType(b).toLowerCase();
+                    comparison = serviceA.localeCompare(serviceB);
+                    // Secondary sort by date
+                    if (comparison === 0) {
+                        comparison = new Date(a.start) - new Date(b.start);
+                    }
+                    break;
+                case 'date':
+                default:
+                    comparison = new Date(a.start) - new Date(b.start);
+                    break;
+            }
+            
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
+
+        if (filteredEvents.length === 0) {
+            return 'No events found in the selected date range.';
         }
 
         let output = '';
 
-        // Filter out overnight events not on their start date
-        const filteredEvents = [];
-        workEvents.forEach(event => {
-            const eventDate = new Date(event.start);
-            if (this.shouldIncludeEventOnDate(event, eventDate)) {
-                filteredEvents.push(event);
-            }
-        });
-
-        if (filteredEvents.length === 0) {
-            return 'No work events found in the selected date range.';
-        }
-
         // Add summary header
-        const firstEventDate = this.formatDate(new Date(filteredEvents[0].start));
-        const lastEventDate = this.formatDate(new Date(filteredEvents[filteredEvents.length - 1].start));
+        const sortedByDate = [...filteredEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
+        const firstEventDate = this.formatDate(new Date(sortedByDate[0].start));
+        const lastEventDate = this.formatDate(new Date(sortedByDate[sortedByDate.length - 1].start));
 
-        output += `Work Events Summary\n`;
+        const filterLabel = workEventsOnly ? 'Work Events' : 'All Events';
+        output += `${filterLabel} Summary\n`;
         output += `${firstEventDate} - ${lastEventDate}\n`;
         output += `Total: ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}\n`;
         output += `${'='.repeat(50)}\n\n`;
 
-        if (groupBy === 'client') {
-            // Group by client, then by service type
-            const clientGroups = new Map();
-
-            filteredEvents.forEach(event => {
-                const client = this.extractClientName(event.title);
-                const serviceType = this.formatServiceType(event);
-
-                if (!clientGroups.has(client)) {
-                    clientGroups.set(client, new Map());
-                }
-
-                const serviceGroups = clientGroups.get(client);
-                if (!serviceGroups.has(serviceType)) {
-                    serviceGroups.set(serviceType, []);
-                }
-
-                serviceGroups.get(serviceType).push(event);
-            });
-
-            // Sort clients alphabetically
-            const sortedClients = Array.from(clientGroups.keys()).sort();
-
-            // Generate output grouped by client and service
-            sortedClients.forEach(client => {
-                const serviceGroups = clientGroups.get(client);
-                const totalClientEvents = Array.from(serviceGroups.values()).reduce((sum, events) => sum + events.length, 0);
-
-                output += `${client} (${totalClientEvents} visit${totalClientEvents !== 1 ? 's' : ''})\n`;
-
-                serviceGroups.forEach((events, serviceType) => {
-                    output += `  ${serviceType}:\n`;
-
-                    events.forEach(event => {
-                        const eventDate = new Date(event.start);
-                        const date = this.formatDate(eventDate);
-                        const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
-
-                        output += `    • ${date}${time}\n`;
-                    });
-                });
-
-                output += '\n';
-            });
-
-        } else if (groupBy === 'date') {
-            // Group events by date
-            const eventsByDate = new Map();
-
-            filteredEvents.forEach(event => {
-                const eventDate = new Date(event.start);
-                const dateKey = this.formatDate(eventDate);
-
-                if (!eventsByDate.has(dateKey)) {
-                    eventsByDate.set(dateKey, []);
-                }
-
-                eventsByDate.get(dateKey).push(event);
-            });
-
-            // Generate grouped output by date
-            for (const [date, dateEvents] of eventsByDate) {
-                const eventCount = dateEvents.length;
-                const countLabel = eventCount === 1 ? '1 event' : `${eventCount} events`;
-                output += `${date} (${countLabel})\n`;
-
-                dateEvents.forEach(event => {
-                    const client = this.extractClientName(event.title);
-                    const serviceType = this.formatServiceType(event);
-                    const time = includeTime ? ` @ ${this.formatTime(new Date(event.start))}` : '';
-
-                    output += `  • ${client} - ${serviceType}${time}\n`;
-                });
-
-                output += '\n';
-            }
-        } else {
-            // Simple list without grouping
-            filteredEvents.forEach(event => {
-                const eventDate = new Date(event.start);
-                const date = this.formatDate(eventDate);
-                const client = this.extractClientName(event.title);
-                const serviceType = this.formatServiceType(event);
-                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
-
-                output += `${date} | ${client} | ${serviceType}${time}\n`;
-            });
+        // Generate output based on groupBy option
+        switch (groupBy) {
+            case 'client':
+                output += this.generateGroupedByClient(filteredEvents, includeTime, includeLocation);
+                break;
+            case 'service':
+                output += this.generateGroupedByService(filteredEvents, includeTime, includeLocation);
+                break;
+            case 'week':
+                output += this.generateGroupedByWeek(filteredEvents, includeTime, includeLocation);
+                break;
+            case 'month':
+                output += this.generateGroupedByMonth(filteredEvents, includeTime, includeLocation);
+                break;
+            case 'date':
+                output += this.generateGroupedByDate(filteredEvents, includeTime, includeLocation);
+                break;
+            case 'none':
+            default:
+                output += this.generateSimpleList(filteredEvents, includeTime, includeLocation);
+                break;
         }
 
         return output.trim();
     }
 
     /**
-     * Generate CSV format of work events
+     * Generate simple list without grouping
+     */
+    generateSimpleList(events, includeTime, includeLocation) {
+        let output = '';
+        events.forEach(event => {
+            const eventDate = new Date(event.start);
+            const date = this.formatDate(eventDate);
+            const client = this.extractClientName(event.title);
+            const serviceType = this.formatServiceType(event);
+            const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+            const location = includeLocation && event.location ? ` | ${event.location}` : '';
+
+            output += `${date} | ${client} | ${serviceType}${time}${location}\n`;
+        });
+        return output;
+    }
+
+    /**
+     * Generate output grouped by date
+     */
+    generateGroupedByDate(events, includeTime, includeLocation) {
+        let output = '';
+        const eventsByDate = new Map();
+
+        events.forEach(event => {
+            const eventDate = new Date(event.start);
+            const dateKey = this.formatDate(eventDate);
+
+            if (!eventsByDate.has(dateKey)) {
+                eventsByDate.set(dateKey, []);
+            }
+            eventsByDate.get(dateKey).push(event);
+        });
+
+        for (const [date, dateEvents] of eventsByDate) {
+            const eventCount = dateEvents.length;
+            const countLabel = eventCount === 1 ? '1 event' : `${eventCount} events`;
+            output += `${date} (${countLabel})\n`;
+
+            dateEvents.forEach(event => {
+                const client = this.extractClientName(event.title);
+                const serviceType = this.formatServiceType(event);
+                const time = includeTime ? ` @ ${this.formatTime(new Date(event.start))}` : '';
+                const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
+
+                output += `  • ${client} - ${serviceType}${time}${location}\n`;
+            });
+
+            output += '\n';
+        }
+        return output;
+    }
+
+    /**
+     * Generate output grouped by client
+     */
+    generateGroupedByClient(events, includeTime, includeLocation) {
+        let output = '';
+        const clientGroups = new Map();
+
+        events.forEach(event => {
+            const client = this.extractClientName(event.title);
+            const serviceType = this.formatServiceType(event);
+
+            if (!clientGroups.has(client)) {
+                clientGroups.set(client, new Map());
+            }
+
+            const serviceGroups = clientGroups.get(client);
+            if (!serviceGroups.has(serviceType)) {
+                serviceGroups.set(serviceType, []);
+            }
+
+            serviceGroups.get(serviceType).push(event);
+        });
+
+        // Sort clients alphabetically
+        const sortedClients = Array.from(clientGroups.keys()).sort();
+
+        sortedClients.forEach(client => {
+            const serviceGroups = clientGroups.get(client);
+            const totalClientEvents = Array.from(serviceGroups.values()).reduce((sum, events) => sum + events.length, 0);
+
+            output += `${client} (${totalClientEvents} visit${totalClientEvents !== 1 ? 's' : ''})\n`;
+
+            serviceGroups.forEach((events, serviceType) => {
+                output += `  ${serviceType}:\n`;
+
+                events.forEach(event => {
+                    const eventDate = new Date(event.start);
+                    const date = this.formatDate(eventDate);
+                    const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                    const location = includeLocation && event.location ? `\n        📍 ${event.location}` : '';
+
+                    output += `    • ${date}${time}${location}\n`;
+                });
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by service type
+     */
+    generateGroupedByService(events, includeTime, includeLocation) {
+        let output = '';
+        const serviceGroups = new Map();
+
+        events.forEach(event => {
+            const serviceType = this.formatServiceType(event);
+
+            if (!serviceGroups.has(serviceType)) {
+                serviceGroups.set(serviceType, []);
+            }
+            serviceGroups.get(serviceType).push(event);
+        });
+
+        // Sort service types alphabetically
+        const sortedServices = Array.from(serviceGroups.keys()).sort();
+
+        sortedServices.forEach(serviceType => {
+            const serviceEvents = serviceGroups.get(serviceType);
+            output += `${serviceType} (${serviceEvents.length} event${serviceEvents.length !== 1 ? 's' : ''})\n`;
+
+            serviceEvents.forEach(event => {
+                const eventDate = new Date(event.start);
+                const date = this.formatDate(eventDate);
+                const client = this.extractClientName(event.title);
+                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
+
+                output += `  • ${date} - ${client}${time}${location}\n`;
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by week
+     */
+    generateGroupedByWeek(events, includeTime, includeLocation) {
+        let output = '';
+        const weekGroups = new Map();
+
+        events.forEach(event => {
+            const eventDate = new Date(event.start);
+            const weekStart = this.getWeekStart(eventDate);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            const weekKey = `${this.formatShortDate(weekStart)} - ${this.formatShortDate(weekEnd)}`;
+
+            if (!weekGroups.has(weekKey)) {
+                weekGroups.set(weekKey, { start: weekStart, events: [] });
+            }
+            weekGroups.get(weekKey).events.push(event);
+        });
+
+        // Sort weeks chronologically
+        const sortedWeeks = Array.from(weekGroups.entries()).sort((a, b) => a[1].start - b[1].start);
+
+        sortedWeeks.forEach(([weekKey, { events: weekEvents }]) => {
+            output += `Week of ${weekKey} (${weekEvents.length} event${weekEvents.length !== 1 ? 's' : ''})\n`;
+
+            // Sort events within week by date
+            weekEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+            weekEvents.forEach(event => {
+                const eventDate = new Date(event.start);
+                const dayName = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
+                const day = eventDate.getDate();
+                const client = this.extractClientName(event.title);
+                const serviceType = this.formatServiceType(event);
+                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
+
+                output += `  • ${dayName} ${day}: ${client} - ${serviceType}${time}${location}\n`;
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Generate output grouped by month
+     */
+    generateGroupedByMonth(events, includeTime, includeLocation) {
+        let output = '';
+        const monthGroups = new Map();
+
+        events.forEach(event => {
+            const eventDate = new Date(event.start);
+            const monthKey = eventDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+            const monthStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), 1);
+
+            if (!monthGroups.has(monthKey)) {
+                monthGroups.set(monthKey, { start: monthStart, events: [] });
+            }
+            monthGroups.get(monthKey).events.push(event);
+        });
+
+        // Sort months chronologically
+        const sortedMonths = Array.from(monthGroups.entries()).sort((a, b) => a[1].start - b[1].start);
+
+        sortedMonths.forEach(([monthKey, { events: monthEvents }]) => {
+            output += `${monthKey} (${monthEvents.length} event${monthEvents.length !== 1 ? 's' : ''})\n`;
+            output += `${'─'.repeat(30)}\n`;
+
+            // Sort events within month by date
+            monthEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+            monthEvents.forEach(event => {
+                const eventDate = new Date(event.start);
+                const date = this.formatDate(eventDate);
+                const client = this.extractClientName(event.title);
+                const serviceType = this.formatServiceType(event);
+                const time = includeTime ? ` @ ${this.formatTime(eventDate)}` : '';
+                const location = includeLocation && event.location ? `\n      📍 ${event.location}` : '';
+
+                output += `  • ${date}: ${client} - ${serviceType}${time}${location}\n`;
+            });
+
+            output += '\n';
+        });
+
+        return output;
+    }
+
+    /**
+     * Get the start of the week (Sunday) for a given date
+     */
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        d.setDate(d.getDate() - day);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    /**
+     * Format date in short format (Mon Jan 1)
+     */
+    formatShortDate(date) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    /**
+     * Generate CSV format of events
      * @param {Array} events - Array of all events
      * @param {Object} options - Export options
      * @returns {string} CSV formatted string
@@ -346,12 +559,16 @@ class EventListExporter {
     generateCSV(events, options = {}) {
         const {
             startDate = null,
-            endDate = null
+            endDate = null,
+            workEventsOnly = true,
+            sortBy = 'date',
+            sortOrder = 'asc',
+            includeLocation = false
         } = options;
 
-        // Filter for work events only
-        let workEvents = events.filter(event => {
-            if (!this.eventProcessor.isWorkEvent(event)) {
+        // Filter events
+        let filteredEvents = events.filter(event => {
+            if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) {
                 return false;
             }
 
@@ -368,14 +585,43 @@ class EventListExporter {
             return true;
         });
 
-        // Sort by date
-        workEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+        // Sort events
+        filteredEvents.sort((a, b) => {
+            let comparison = 0;
+            
+            switch (sortBy) {
+                case 'client':
+                    const clientA = this.extractClientName(a.title).toLowerCase();
+                    const clientB = this.extractClientName(b.title).toLowerCase();
+                    comparison = clientA.localeCompare(clientB);
+                    if (comparison === 0) {
+                        comparison = new Date(a.start) - new Date(b.start);
+                    }
+                    break;
+                case 'service':
+                    const serviceA = this.formatServiceType(a).toLowerCase();
+                    const serviceB = this.formatServiceType(b).toLowerCase();
+                    comparison = serviceA.localeCompare(serviceB);
+                    if (comparison === 0) {
+                        comparison = new Date(a.start) - new Date(b.start);
+                    }
+                    break;
+                case 'date':
+                default:
+                    comparison = new Date(a.start) - new Date(b.start);
+                    break;
+            }
+            
+            return sortOrder === 'desc' ? -comparison : comparison;
+        });
 
         // CSV header
-        let csv = 'Date,Time,Client/Pet,Service Type,Duration\n';
+        let csv = includeLocation 
+            ? 'Date,Time,Client/Pet,Service Type,Duration,Location\n'
+            : 'Date,Time,Client/Pet,Service Type,Duration\n';
 
         // CSV rows
-        workEvents.forEach(event => {
+        filteredEvents.forEach(event => {
             const eventDate = new Date(event.start);
 
             // Only include overnight events on their start date
@@ -398,7 +644,12 @@ class EventListExporter {
                 ? `${durationHours}h ${remainingMinutes}m`
                 : `${remainingMinutes}m`;
 
-            csv += `${date},${time},${client},${serviceType},${duration}\n`;
+            if (includeLocation) {
+                const location = this.escapeCSV(event.location || '');
+                csv += `${date},${time},${client},${serviceType},${duration},${location}\n`;
+            } else {
+                csv += `${date},${time},${client},${serviceType},${duration}\n`;
+            }
         });
 
         return csv;

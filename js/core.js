@@ -2950,8 +2950,18 @@ class GPSAdminApp {
         document.getElementById('export-start-date').value = formatDate(startOfMonth);
         document.getElementById('export-end-date').value = formatDate(endOfMonth);
 
+        // Reset form to defaults
+        document.getElementById('export-work-events-only').checked = true;
+        document.getElementById('export-group-by').value = 'date';
+        document.getElementById('export-sort-by').value = 'date';
+        document.getElementById('export-sort-order').value = 'asc';
+        document.getElementById('export-include-time').checked = true;
+        document.getElementById('export-include-location').checked = false;
+        document.getElementById('export-format').value = 'text';
+
         // Reset preview section
         document.getElementById('export-preview-section').style.display = 'none';
+        document.getElementById('export-loading').style.display = 'none';
         document.getElementById('export-copy-to-clipboard').style.display = 'none';
         document.getElementById('export-download-file').style.display = 'none';
 
@@ -2959,53 +2969,93 @@ class GPSAdminApp {
     }
 
     /**
-     * Generate export preview
+     * Generate export preview - fetches events for the date range then generates preview
      */
-    generateExportPreview() {
+    async generateExportPreview() {
         if (!this.eventListExporter) return;
 
         try {
             // Get form values
             const startDateInput = document.getElementById('export-start-date').value;
             const endDateInput = document.getElementById('export-end-date').value;
-            const includeTime = document.getElementById('export-include-time').checked;
-            const groupBy = document.getElementById('export-group-by').value;
-            const format = document.getElementById('export-format').value;
-
-            // Parse dates
-            const startDate = startDateInput ? new Date(startDateInput + 'T00:00:00') : null;
-            const endDate = endDateInput ? new Date(endDateInput + 'T23:59:59') : null;
-
-            // Generate preview based on format
-            let preview;
-            if (format === 'csv') {
-                preview = this.eventListExporter.generateCSV(this.state.events, {
-                    startDate,
-                    endDate
-                });
-            } else {
-                preview = this.eventListExporter.generateTextList(this.state.events, {
-                    startDate,
-                    endDate,
-                    includeTime,
-                    groupBy
-                });
+            
+            if (!startDateInput || !endDateInput) {
+                alert('Please specify both start and end dates.');
+                return;
             }
 
-            // Count work events
-            const workEvents = this.state.events.filter(event => {
-                if (!this.eventProcessor.isWorkEvent(event)) return false;
+            const includeTime = document.getElementById('export-include-time').checked;
+            const includeLocation = document.getElementById('export-include-location').checked;
+            const groupBy = document.getElementById('export-group-by').value;
+            const sortBy = document.getElementById('export-sort-by').value;
+            const sortOrder = document.getElementById('export-sort-order').value;
+            const format = document.getElementById('export-format').value;
+            const workEventsOnly = document.getElementById('export-work-events-only').checked;
 
+            // Parse dates
+            const startDate = new Date(startDateInput + 'T00:00:00');
+            const endDate = new Date(endDateInput + 'T23:59:59');
+
+            // Show loading indicator
+            document.getElementById('export-loading').style.display = 'block';
+            document.getElementById('export-preview-section').style.display = 'none';
+            document.getElementById('export-generate-preview').disabled = true;
+
+            // Fetch events for the date range from the calendar API
+            let eventsToExport = [];
+            
+            try {
+                // Check if the date range is already covered by loaded events
+                const needsNewFetch = this.needsEventFetch(startDate, endDate);
+                
+                if (needsNewFetch && this.calendarApi && this.calendarApi.isSignedIn) {
+                    // Fetch events from calendar API for the specified range
+                    const fetchedEvents = await this.calendarApi.fetchAllCalendarEvents(startDate, endDate);
+                    eventsToExport = fetchedEvents;
+                } else {
+                    // Use already loaded events
+                    eventsToExport = this.state.events;
+                }
+            } catch (fetchError) {
+                console.warn('Could not fetch events from calendar, using cached events:', fetchError);
+                eventsToExport = this.state.events;
+            }
+
+            // Generate preview based on format
+            const exportOptions = {
+                startDate,
+                endDate,
+                includeTime,
+                includeLocation,
+                groupBy,
+                sortBy,
+                sortOrder,
+                workEventsOnly
+            };
+
+            let preview;
+            if (format === 'csv') {
+                preview = this.eventListExporter.generateCSV(eventsToExport, exportOptions);
+            } else {
+                preview = this.eventListExporter.generateTextList(eventsToExport, exportOptions);
+            }
+
+            // Count events for display
+            const filteredEvents = eventsToExport.filter(event => {
+                if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) return false;
                 const eventDate = new Date(event.start);
                 if (startDate && eventDate < startDate) return false;
                 if (endDate && eventDate > endDate) return false;
-
                 return true;
             });
 
+            // Hide loading, show preview
+            document.getElementById('export-loading').style.display = 'none';
+            document.getElementById('export-generate-preview').disabled = false;
+
             // Display preview
             document.getElementById('export-preview').textContent = preview;
-            document.getElementById('export-event-count').textContent = `${workEvents.length} event${workEvents.length !== 1 ? 's' : ''}`;
+            document.getElementById('export-event-count').textContent = `${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`;
             document.getElementById('export-preview-section').style.display = 'block';
             document.getElementById('export-copy-to-clipboard').style.display = 'inline-flex';
             document.getElementById('export-download-file').style.display = 'inline-flex';
@@ -3016,8 +3066,37 @@ class GPSAdminApp {
 
         } catch (error) {
             console.error('Error generating export preview:', error);
+            document.getElementById('export-loading').style.display = 'none';
+            document.getElementById('export-generate-preview').disabled = false;
             alert('Error generating preview: ' + (error.message || 'Unknown error'));
         }
+    }
+
+    /**
+     * Check if we need to fetch events for a date range
+     * @param {Date} startDate - Start date
+     * @param {Date} endDate - End date
+     * @returns {boolean} True if fetch is needed
+     */
+    needsEventFetch(startDate, endDate) {
+        if (!this.state.events || this.state.events.length === 0) {
+            return true;
+        }
+
+        // Check if the date range is significantly outside currently loaded events
+        const loadedEvents = this.state.events.filter(e => !e.ignored);
+        if (loadedEvents.length === 0) return true;
+
+        const sortedEvents = [...loadedEvents].sort((a, b) => new Date(a.start) - new Date(b.start));
+        const earliestLoaded = new Date(sortedEvents[0].start);
+        const latestLoaded = new Date(sortedEvents[sortedEvents.length - 1].start);
+
+        // Need fetch if requested range is significantly outside loaded range
+        const bufferDays = 7;
+        const bufferMs = bufferDays * 24 * 60 * 60 * 1000;
+
+        return startDate < new Date(earliestLoaded.getTime() - bufferMs) ||
+               endDate > new Date(latestLoaded.getTime() + bufferMs);
     }
 
     /**

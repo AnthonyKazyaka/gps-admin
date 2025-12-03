@@ -1126,12 +1126,12 @@
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Export Work Events List</h3>
+                <h3>Export Events List</h3>
                 <button class="modal-close" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <p class="text-muted" style="margin-bottom: var(--spacing-lg);">
-                    Generate a formatted text list of your work calendar events showing date, client/pet name, and service type.
+                    Generate a formatted list of calendar events showing date, client/pet name, and service type.
                 </p>
 
                 <form id="export-event-list-form">
@@ -1147,24 +1147,58 @@
                                 <input type="date" id="export-end-date" class="input">
                             </div>
                         </div>
-                        <small class="form-help">Leave blank to export all work events</small>
+                        <small class="form-help">Events will be fetched from the calendar for this date range</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="export-group-by">Group By</label>
-                        <select id="export-group-by" class="select">
-                            <option value="client">Client → Service → Dates</option>
-                            <option value="date">Date → Clients</option>
-                            <option value="none">No Grouping (Simple List)</option>
-                        </select>
+                        <label>Filter Options</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-work-events-only" checked>
+                                <span>Work events only</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="export-group-by">Group By</label>
+                            <select id="export-group-by" class="select">
+                                <option value="none">No Grouping</option>
+                                <option value="date" selected>Date</option>
+                                <option value="client">Client/Pet</option>
+                                <option value="service">Service Type</option>
+                                <option value="week">Week</option>
+                                <option value="month">Month</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="export-sort-by">Sort By</label>
+                            <select id="export-sort-by" class="select">
+                                <option value="date" selected>Date</option>
+                                <option value="client">Client/Pet Name</option>
+                                <option value="service">Service Type</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 0.6;">
+                            <label for="export-sort-order">Order</label>
+                            <select id="export-sort-order" class="select">
+                                <option value="asc">Ascending</option>
+                                <option value="desc">Descending</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Format Options</label>
+                        <label>Display Options</label>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="export-include-time" checked>
                                 <span>Include appointment times</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-include-location">
+                                <span>Include location</span>
                             </label>
                         </div>
                     </div>
@@ -1187,6 +1221,12 @@
                     <div id="export-preview" style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: var(--spacing-md); max-height: 300px; overflow-y: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.875rem; white-space: pre-wrap; line-height: 1.6;">
                         <!-- Preview will be generated here -->
                     </div>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="export-loading" style="display: none; text-align: center; padding: var(--spacing-lg);">
+                    <div class="loading-spinner"></div>
+                    <p style="margin-top: var(--spacing-sm); color: var(--gray-600);">Fetching events from calendar...</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1222,14 +1262,14 @@
     <script src="js/calculations.js?v=3.0"></script>
     <script src="js/rendering.js?v=3.4"></script>
     <script src="js/mock-data.js?v=1.0"></script>
-    <script src="js/core.js?v=3.1"></script>
+    <script src="js/core.js?v=3.2"></script>
     
     <!-- API Modules -->
-    <script src="js/calendar-api.js?v=2.8"></script>
+    <script src="js/calendar-api.js?v=2.9"></script>
     <script src="js/maps-api.js?v=2.8"></script>
     <script src="js/workload-analyzer.js?v=2.8"></script>
     <script src="js/templates.js?v=2.8"></script>
-    <script src="js/event-list-export.js?v=1.0"></script>
+    <script src="js/event-list-export.js?v=1.1"></script>
 
     <!-- Initialize App -->
     <script>
