@@ -2984,6 +2984,9 @@ class GPSAdminApp {
         document.getElementById('export-download-file').style.display = 'none';
 
         Utils.showModal('export-event-list-modal');
+        
+        // Ensure grouping options are updated after modal is shown
+        this.updateGroupingOptions();
     }
 
     /**
@@ -3037,9 +3040,13 @@ class GPSAdminApp {
 
         // Add change listener to update available options
         const select = levelDiv.querySelector('.group-level-select');
-        select.addEventListener('change', () => this.updateGroupingOptions());
+        select.addEventListener('change', () => {
+            this.updateSortOptionsForLevel(levelDiv);
+            this.updateGroupingOptions();
+        });
 
         this.updateGroupLevelButtons();
+        this.updateSortOptionsForLevel(levelDiv);
         this.updateGroupingOptions();
     }
 
@@ -3099,9 +3106,13 @@ class GPSAdminApp {
 
         // Add change listener to update available options
         const select = levelDiv.querySelector('.group-level-select');
-        select.addEventListener('change', () => this.updateGroupingOptions());
+        select.addEventListener('change', () => {
+            this.updateSortOptionsForLevel(levelDiv);
+            this.updateGroupingOptions();
+        });
 
         this.updateGroupLevelButtons();
+        this.updateSortOptionsForLevel(levelDiv);
         this.updateGroupingOptions();
     }
 
@@ -3197,6 +3208,57 @@ class GPSAdminApp {
                 option.disabled = selectedValues.includes(option.value) && option.value !== currentValue;
             });
         });
+    }
+
+    /**
+     * Update sort options based on the selected grouping for a level
+     * @param {HTMLElement} levelDiv - The level div element
+     */
+    updateSortOptionsForLevel(levelDiv) {
+        const groupSelect = levelDiv.querySelector('.group-level-select');
+        const sortSelect = levelDiv.querySelector('.group-level-sort');
+        
+        if (!groupSelect || !sortSelect) return;
+        
+        const groupValue = groupSelect.value;
+        const currentSortValue = sortSelect.value;
+        
+        // Define sort options for each group type
+        let sortOptions = [];
+        
+        if (groupValue === 'date' || groupValue === 'week' || groupValue === 'month') {
+            // Date-based groupings: only date sort makes sense
+            sortOptions = [
+                { value: 'date-asc', label: 'Old→New' },
+                { value: 'date-desc', label: 'New→Old' }
+            ];
+        } else if (groupValue === 'client' || groupValue === 'service') {
+            // Text-based groupings: only alphabetical sort makes sense
+            sortOptions = [
+                { value: 'alpha-asc', label: 'A→Z' },
+                { value: 'alpha-desc', label: 'Z→A' }
+            ];
+        } else if (groupValue === 'none') {
+            // No grouping: sorting events themselves, so all options available
+            sortOptions = [
+                { value: 'date-asc', label: 'Date: Old→New' },
+                { value: 'date-desc', label: 'Date: New→Old' },
+                { value: 'time-asc', label: 'Time: Early→Late' },
+                { value: 'time-desc', label: 'Time: Late→Early' },
+                { value: 'alpha-asc', label: 'A→Z' },
+                { value: 'alpha-desc', label: 'Z→A' }
+            ];
+        }
+        
+        // Rebuild sort dropdown
+        sortSelect.innerHTML = sortOptions.map(opt => 
+            `<option value="${opt.value}"${opt.value === currentSortValue ? ' selected' : ''}>${opt.label}</option>`
+        ).join('');
+        
+        // If current value is not in new options, select the first one
+        if (!sortOptions.find(opt => opt.value === currentSortValue)) {
+            sortSelect.value = sortOptions[0].value;
+        }
     }
 
     /**
