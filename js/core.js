@@ -2973,9 +2973,6 @@ class GPSAdminApp {
         // Reset form to defaults
         document.getElementById('export-work-events-only').checked = true;
         this.resetGroupLevels();
-        document.getElementById('export-sort-by').value = 'time';
-        document.getElementById('export-secondary-sort').value = '';
-        document.getElementById('export-sort-order').value = 'asc';
         document.getElementById('export-include-time').checked = true;
         document.getElementById('export-include-location').checked = false;
         document.getElementById('export-format').value = 'text';
@@ -3004,16 +3001,30 @@ class GPSAdminApp {
         levelDiv.className = 'group-level';
         levelDiv.dataset.level = '1';
         levelDiv.innerHTML = `
-            <div style="display: flex; gap: var(--spacing-xs); align-items: center;">
+            <div style="display: grid; grid-template-columns: auto 1fr 150px auto; gap: var(--spacing-sm); align-items: center;">
                 <span class="group-level-label">1.</span>
-                <select class="select group-level-select" data-level="1" style="flex: 1;">
-                    <option value="none">No Grouping</option>
-                    <option value="date" selected>Date</option>
-                    <option value="week">Week</option>
-                    <option value="month">Month</option>
-                    <option value="client">Client/Pet</option>
-                    <option value="service">Service Type</option>
-                </select>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Group By</label>
+                    <select class="select group-level-select" data-level="1">
+                        <option value="none">No Grouping</option>
+                        <option value="date" selected>Date</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="client">Client/Pet</option>
+                        <option value="service">Service Type</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
+                    <select class="select group-level-sort" data-level="1" style="font-size: 0.875rem;">
+                        <option value="date-asc">Date: Old→New</option>
+                        <option value="date-desc">Date: New→Old</option>
+                        <option value="time-asc">Time: Early→Late</option>
+                        <option value="time-desc">Time: Late→Early</option>
+                        <option value="alpha-asc" selected>A→Z</option>
+                        <option value="alpha-desc">Z→A</option>
+                    </select>
+                </div>
                 <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -3024,7 +3035,12 @@ class GPSAdminApp {
         `;
         container.appendChild(levelDiv);
 
+        // Add change listener to update available options
+        const select = levelDiv.querySelector('.group-level-select');
+        select.addEventListener('change', () => this.updateGroupingOptions());
+
         this.updateGroupLevelButtons();
+        this.updateGroupingOptions();
     }
 
     /**
@@ -3063,8 +3079,12 @@ class GPSAdminApp {
                 <div>
                     <label style="font-size: 0.75rem; color: var(--color-text-muted); display: block; margin-bottom: 4px;">Sort By</label>
                     <select class="select group-level-sort" data-level="${newLevel}" style="font-size: 0.875rem;">
-                        <option value="asc" selected>↑ A-Z / Old→New</option>
-                        <option value="desc">↓ Z-A / New→Old</option>
+                        <option value="date-asc">Date: Old→New</option>
+                        <option value="date-desc">Date: New→Old</option>
+                        <option value="time-asc">Time: Early→Late</option>
+                        <option value="time-desc">Time: Late→Early</option>
+                        <option value="alpha-asc" selected>A→Z</option>
+                        <option value="alpha-desc">Z→A</option>
                     </select>
                 </div>
                 <button type="button" class="btn-icon remove-group-level" data-level="${newLevel}" title="Remove this grouping level">
@@ -3077,7 +3097,12 @@ class GPSAdminApp {
         `;
         container.appendChild(levelDiv);
 
+        // Add change listener to update available options
+        const select = levelDiv.querySelector('.group-level-select');
+        select.addEventListener('change', () => this.updateGroupingOptions());
+
         this.updateGroupLevelButtons();
+        this.updateGroupingOptions();
     }
 
     /**
@@ -3115,6 +3140,7 @@ class GPSAdminApp {
         });
 
         this.updateGroupLevelButtons();
+        this.updateGroupingOptions();
     }
 
     /**
@@ -3142,12 +3168,44 @@ class GPSAdminApp {
     }
 
     /**
+     * Update grouping options to disable already-selected values in other dropdowns
+     */
+    updateGroupingOptions() {
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const selects = container.querySelectorAll('.group-level-select');
+        
+        // Get all selected values (excluding 'none')
+        const selectedValues = Array.from(selects)
+            .map(select => select.value)
+            .filter(val => val !== 'none');
+
+        // Update each select
+        selects.forEach(select => {
+            const currentValue = select.value;
+            const options = select.querySelectorAll('option');
+
+            options.forEach(option => {
+                // Don't disable 'none' option
+                if (option.value === 'none') {
+                    option.disabled = false;
+                    return;
+                }
+
+                // Disable if selected elsewhere and not the current value
+                option.disabled = selectedValues.includes(option.value) && option.value !== currentValue;
+            });
+        });
+    }
+
+    /**
      * Get the grouping configuration from the UI
      * @returns {Array<{field: string, order: string}>} Array of grouping field and order objects
      */
     getGroupLevels() {
         const container = document.getElementById('group-levels-container');
-        if (!container) return [{field: 'date', order: 'asc'}];
+        if (!container) return [{field: 'date', sortBy: 'alpha', sortOrder: 'asc'}];
 
         const levelDivs = container.querySelectorAll('.group-level');
         const levels = [];
@@ -3156,15 +3214,23 @@ class GPSAdminApp {
             const fieldSelect = div.querySelector('.group-level-select');
             const sortSelect = div.querySelector('.group-level-sort');
             
-            if (fieldSelect && fieldSelect.value !== 'none') {
-                levels.push({
-                    field: fieldSelect.value,
-                    order: sortSelect ? sortSelect.value : 'asc'
-                });
+            const field = fieldSelect ? fieldSelect.value : 'none';
+            
+            // Parse sort value (e.g., "date-asc" -> {sortBy: "date", sortOrder: "asc"})
+            let sortBy = 'alpha';
+            let sortOrder = 'asc';
+            if (sortSelect) {
+                [sortBy, sortOrder] = sortSelect.value.split('-');
             }
+            
+            levels.push({
+                field: field,
+                sortBy: sortBy,
+                sortOrder: sortOrder
+            });
         });
         
-        return levels.length > 0 ? levels : [{field: 'date', order: 'asc'}];
+        return levels.length > 0 ? levels : [{field: 'date', sortBy: 'alpha', sortOrder: 'asc'}];
     }
 
     /**
@@ -3186,17 +3252,21 @@ class GPSAdminApp {
             const includeTime = document.getElementById('export-include-time').checked;
             const includeLocation = document.getElementById('export-include-location').checked;
             const groupLevels = this.getGroupLevels();
-            const sortBy = document.getElementById('export-sort-by').value;
-            const secondarySort = document.getElementById('export-secondary-sort').value;
-            const sortOrder = document.getElementById('export-sort-order').value;
             const format = document.getElementById('export-format').value;
             const workEventsOnly = document.getElementById('export-work-events-only').checked;
 
-            // Build groupBy string from levels (e.g., "client-service-date")
-            const groupBy = groupLevels.length > 0 ? groupLevels.map(l => l.field).join('-') : 'date';
+            // Build groupBy string from levels, filtering out 'none' (e.g., "client-service-date")
+            // If last level is 'none', it means sort events without additional grouping
+            const groupingLevels = groupLevels.filter(l => l.field !== 'none');
+            const groupBy = groupingLevels.length > 0 ? groupingLevels.map(l => l.field).join('-') : 'none';
             
-            // Extract sort orders for each grouping level
-            const groupSortOrders = groupLevels.map(l => l.order);
+            // Extract sort configuration
+            const groupSortOrders = groupLevels.map(l => ({ sortBy: l.sortBy, sortOrder: l.sortOrder }));
+            
+            // Find the last level's sort config for event sorting
+            const lastLevel = groupLevels[groupLevels.length - 1];
+            const sortBy = lastLevel ? lastLevel.sortBy : 'time';
+            const sortOrder = lastLevel ? lastLevel.sortOrder : 'asc';
 
             // Parse dates
             const startDate = new Date(startDateInput + 'T00:00:00');
@@ -3236,7 +3306,6 @@ class GPSAdminApp {
                 groupBy,
                 groupSortOrders,
                 sortBy,
-                secondarySort: secondarySort && secondarySort !== '' ? secondarySort : null,
                 sortOrder,
                 workEventsOnly
             };
