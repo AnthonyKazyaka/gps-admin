@@ -108,6 +108,15 @@
                     <span>Analytics</span>
                 </a>
 
+                <a href="#export" data-view="export" class="nav-item">
+                    <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Export</span>
+                </a>
+
                 <div class="nav-divider"></div>
 
                 <a href="#settings" data-view="settings" class="nav-item">
@@ -428,6 +437,267 @@
                         <div class="analytics-card analytics-card-full">
                             <h3>Key Insights</h3>
                             <div id="analytics-insights" class="insights-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export View -->
+            <div id="view-export" class="view">
+                <div class="view-header">
+                    <div>
+                        <h2>Export Events</h2>
+                        <p class="view-subtitle">Build a full-page export with grouping, sorting, and copy-friendly previews.</p>
+                    </div>
+                    <div class="view-actions export-actions"></div>
+                </div>
+
+                <div class="export-layout">
+                    <div class="export-card export-form-card">
+                        <h3 style="margin-top: 0;">Presets</h3>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-template-select" style="font-size: 0.875rem; font-weight: normal;">Saved presets</label>
+                                <select id="export-template-select" class="select">
+                                    <option value="">No preset</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-template-name" style="font-size: 0.875rem; font-weight: normal;">Preset name</label>
+                                <input type="text" id="export-template-name" class="input" placeholder="Weekly CSV, Client summary, etc.">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-template-include-dates" checked>
+                                <span>Save date range with preset</span>
+                            </label>
+                        </div>
+                        <div class="export-actions form-actions template-actions">
+                            <button id="export-template-save" class="btn btn-primary">
+                                Save as new
+                            </button>
+                            <button id="export-template-update" class="btn btn-secondary" disabled>
+                                Update selected
+                            </button>
+                            <button id="export-template-apply" class="btn btn-secondary" disabled>
+                                Apply
+                            </button>
+                            <button id="export-template-default" class="btn btn-secondary" disabled>
+                                Set default
+                            </button>
+                            <button id="export-template-delete" class="btn btn-secondary" disabled>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="export-card export-form-card">
+                        <h3 style="margin-top: 0;">Date range</h3>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-start-date" style="font-size: 0.875rem; font-weight: normal;">Start Date</label>
+                                <input type="date" id="export-start-date" class="input">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="export-end-date" style="font-size: 0.875rem; font-weight: normal;">End Date</label>
+                                <input type="date" id="export-end-date" class="input">
+                            </div>
+                        </div>
+                        <small class="form-help">Events will be fetched from the calendar for this date range</small>
+
+                        <h3 style="margin: var(--spacing-lg) 0 var(--spacing-sm);">Filters</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="export-work-events-only" checked>
+                                <span>Work events only</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
+                                <label>Group Events By</label>
+                                <button type="button" id="add-group-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                    Add Level
+                                </button>
+                            </div>
+                            <div id="group-levels-container">
+                                <div class="group-level" data-level="1">
+                                    <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                                            <button type="button" class="btn-icon btn-reorder move-group-up" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move up">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                                </svg>
+                                            </button>
+                                            <button type="button" class="btn-icon btn-reorder move-group-down" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move down">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <span class="group-level-label" style="min-width: 20px;">1.</span>
+                                        <select class="select group-level-select" data-level="1" style="flex: 1;">
+                                            <option value="none">No grouping (flat list)</option>
+                                            <option value="date" selected>Date</option>
+                                            <option value="week">Week</option>
+                                            <option value="month">Month</option>
+                                            <option value="client">Client/Pet</option>
+                                            <option value="service">Service Type</option>
+                                        </select>
+                                        <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="form-help">Create a hierarchy by adding multiple levels (e.g., Client → Date).</small>
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
+                                <label>Sort Order</label>
+                                <button type="button" id="add-sort-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                    Add Sort
+                                </button>
+                            </div>
+                            <div id="sort-levels-container">
+                                <div class="sort-level" data-level="1">
+                                    <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                                        <div class="level-reorder-buttons" style="display: none; flex-direction: column; gap: 2px;">
+                                            <button type="button" class="btn-icon-mini move-level-up" data-level="1" title="Move up" disabled>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                            </button>
+                                            <button type="button" class="btn-icon-mini move-level-down" data-level="1" title="Move down" disabled>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                            </button>
+                                        </div>
+                                        <span class="sort-level-label" style="min-width: 20px;">1.</span>
+                                        <select class="select sort-level-select" data-level="1" style="flex: 1;">
+                                            <option value="time-asc" selected>Time (Early → Late)</option>
+                                            <option value="time-desc">Time (Late → Early)</option>
+                                            <option value="date-asc">Date (Old → New)</option>
+                                            <option value="date-desc">Date (New → Old)</option>
+                                            <option value="client-asc">Client (A → Z)</option>
+                                            <option value="client-desc">Client (Z → A)</option>
+                                            <option value="service-asc">Service (A → Z)</option>
+                                            <option value="service-desc">Service (Z → A)</option>
+                                        </select>
+                                        <button type="button" class="btn-icon remove-sort-level" data-level="1" style="display: none;" title="Remove this sort level">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="form-help">Events are sorted by each level in order. Add levels for tie-breakers.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Display Options</label>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="export-include-time" checked>
+                                    <span>Include appointment times</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="export-include-location">
+                                    <span>Include location</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Search &amp; Filter</label>
+                            <input type="text" id="export-search-term" class="input" placeholder="Filter by client, pet, service, or location">
+                            <small class="form-help">Applied to both text and CSV previews.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="export-format">Export Format</label>
+                            <select id="export-format" class="select">
+                                <option value="text">Text List</option>
+                                <option value="csv" selected>CSV (Spreadsheet)</option>
+                            </select>
+                        </div>
+
+                        <div class="export-actions form-actions">
+                            <button id="export-generate-preview" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2v20m10-10H2"></path>
+                                </svg>
+                                Generate Preview
+                            </button>
+                            <button id="export-copy-to-clipboard" class="btn btn-secondary" style="display: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                Copy to Clipboard
+                            </button>
+                            <button id="export-download-file" class="btn btn-secondary" style="display: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download File
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="export-card export-preview-card">
+                        <div class="export-preview-header">
+                            <label style="font-weight: 600; color: var(--gray-700);">Preview</label>
+                        </div>
+
+                        <div id="export-preview-section" class="export-preview-section" style="display: none;">
+                            <div class="export-preview-grid">
+                                <div class="export-preview-panel" id="export-text-panel">
+                                    <div class="export-preview-panel__title">Formatted Text</div>
+                                    <div id="export-preview" class="export-preview-box">
+                                        <!-- Preview will be generated here -->
+                                    </div>
+                                </div>
+                                <div class="export-preview-panel" id="export-table-panel">
+                                    <div class="export-preview-panel__title">CSV / Sortable Table</div>
+                                    <div class="export-table-wrapper">
+                                        <table class="export-table">
+                                            <thead>
+                                                <tr>
+                                                    <th data-sort="date">Date</th>
+                                                    <th data-sort="client">Client</th>
+                                                    <th data-sort="service">Service</th>
+                                                    <th>Duration</th>
+                                                    <th data-sort="time">Time</th>
+                                                    <th>Location</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="export-preview-table-body">
+                                                <!-- Rows injected by JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="export-loading" style="display: none; text-align: center; padding: var(--spacing-lg);">
+                            <div class="loading-spinner"></div>
+                            <p style="margin-top: var(--spacing-sm); color: var(--gray-600);">Fetching events from calendar...</p>
                         </div>
                     </div>
                 </div>
@@ -1121,234 +1391,6 @@
         </div>
     </div>
 
-    <!-- Export Event List Modal -->
-    <div id="export-event-list-modal" class="modal">
-        <div class="modal-overlay"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Export Events List</h3>
-                <button class="modal-close" aria-label="Close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted" style="margin-bottom: var(--spacing-lg);">
-                    Generate a formatted list of calendar events showing date, client/pet name, and service type.
-                </p>
-
-                <form id="export-event-list-form">
-                    <div class="form-group">
-                        <label>Date Range</label>
-                        <div class="form-row">
-                            <div class="form-group" style="flex: 1;">
-                                <label for="export-start-date" style="font-size: 0.875rem; font-weight: normal;">Start Date</label>
-                                <input type="date" id="export-start-date" class="input">
-                            </div>
-                            <div class="form-group" style="flex: 1;">
-                                <label for="export-end-date" style="font-size: 0.875rem; font-weight: normal;">End Date</label>
-                                <input type="date" id="export-end-date" class="input">
-                            </div>
-                        </div>
-                        <small class="form-help">Events will be fetched from the calendar for this date range</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Filter Options</label>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="export-work-events-only" checked>
-                                <span>Work events only</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
-                            <label>Group Events By</label>
-                            <button type="button" id="add-group-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                </svg>
-                                Add Level
-                            </button>
-                        </div>
-                        <div id="group-levels-container">
-                            <!-- Group levels will be dynamically added here -->
-                            <div class="group-level" data-level="1">
-                                <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
-                                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                                        <button type="button" class="btn-icon btn-reorder move-group-up" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move up">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                                <polyline points="18 15 12 9 6 15"></polyline>
-                                            </svg>
-                                        </button>
-                                        <button type="button" class="btn-icon btn-reorder move-group-down" data-level="1" style="padding: 2px; width: 20px; height: 14px; display: none;" title="Move down">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                                <polyline points="6 9 12 15 18 9"></polyline>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <span class="group-level-label" style="min-width: 20px;">1.</span>
-                                    <select class="select group-level-select" data-level="1" style="flex: 1;">
-                                        <option value="none">No grouping (flat list)</option>
-                                        <option value="date" selected>Date</option>
-                                        <option value="week">Week</option>
-                                        <option value="month">Month</option>
-                                        <option value="client">Client/Pet</option>
-                                        <option value="service">Service Type</option>
-                                    </select>
-                                    <button type="button" class="btn-icon remove-group-level" data-level="1" style="display: none;" title="Remove this grouping level">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <small class="form-help">Create a hierarchy by adding multiple levels (e.g., Client → Date).</small>
-                    </div>
-
-                    <div class="form-group">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xs);">
-                            <label>Sort Order</label>
-                            <button type="button" id="add-sort-level" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; font-size: 0.8rem;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                </svg>
-                                Add Sort
-                            </button>
-                        </div>
-                        <div id="sort-levels-container">
-                            <div class="sort-level" data-level="1">
-                                <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
-                                    <div class="level-reorder-buttons" style="display: none; flex-direction: column; gap: 2px;">
-                                        <button type="button" class="btn-icon-mini move-level-up" data-level="1" title="Move up" disabled>
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                                        </button>
-                                        <button type="button" class="btn-icon-mini move-level-down" data-level="1" title="Move down" disabled>
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                                        </button>
-                                    </div>
-                                    <span class="sort-level-label" style="min-width: 20px;">1.</span>
-                                    <select class="select sort-level-select" data-level="1" style="flex: 1;">
-                                        <option value="time-asc" selected>Time (Early → Late)</option>
-                                        <option value="time-desc">Time (Late → Early)</option>
-                                        <option value="date-asc">Date (Old → New)</option>
-                                        <option value="date-desc">Date (New → Old)</option>
-                                        <option value="client-asc">Client (A → Z)</option>
-                                        <option value="client-desc">Client (Z → A)</option>
-                                        <option value="service-asc">Service (A → Z)</option>
-                                        <option value="service-desc">Service (Z → A)</option>
-                                    </select>
-                                    <button type="button" class="btn-icon remove-sort-level" data-level="1" style="display: none;" title="Remove this sort level">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <small class="form-help">Events are sorted by each level in order. Add levels for tie-breakers.</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Display Options</label>
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="export-include-time" checked>
-                                <span>Include appointment times</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="export-include-location">
-                                <span>Include location</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Search &amp; Filter</label>
-                        <input type="text" id="export-search-term" class="input" placeholder="Filter by client, pet, service, or location">
-                        <small class="form-help">Applied to both text and CSV previews.</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="export-format">Export Format</label>
-                        <select id="export-format" class="select">
-                            <option value="text">Text List</option>
-                            <option value="csv">CSV (Spreadsheet)</option>
-                        </select>
-                    </div>
-                </form>
-
-                <!-- Preview Section -->
-                <div id="export-preview-section" class="export-preview-section" style="margin-top: var(--spacing-lg); display: none;">
-                    <div class="export-preview-header">
-                        <div>
-                            <label style="font-weight: 600; color: var(--gray-700);">Preview</label>
-                            <div id="export-group-summary" class="export-group-summary"></div>
-                        </div>
-                        <span id="export-event-count" class="badge" style="background: var(--primary-500); color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem;"></span>
-                    </div>
-                    <div class="export-preview-grid">
-                        <div class="export-preview-panel">
-                            <div class="export-preview-panel__title">Formatted Text</div>
-                            <div id="export-preview" class="export-preview-box">
-                                <!-- Preview will be generated here -->
-                            </div>
-                        </div>
-                        <div class="export-preview-panel">
-                            <div class="export-preview-panel__title">CSV / Sortable Table</div>
-                            <div class="export-table-wrapper">
-                                <table class="export-table">
-                                    <thead>
-                                        <tr>
-                                            <th data-sort="date">Date</th>
-                                            <th data-sort="client">Client</th>
-                                            <th data-sort="service">Service</th>
-                                            <th>Duration</th>
-                                            <th data-sort="time">Time</th>
-                                            <th>Location</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="export-preview-table-body">
-                                        <!-- Rows injected by JS -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading indicator -->
-                <div id="export-loading" style="display: none; text-align: center; padding: var(--spacing-lg);">
-                    <div class="loading-spinner"></div>
-                    <p style="margin-top: var(--spacing-sm); color: var(--gray-600);">Fetching events from calendar...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary js-modal-close">Cancel</button>
-                <button id="export-generate-preview" class="btn btn-secondary">Generate Preview</button>
-                <button id="export-copy-to-clipboard" class="btn btn-primary" style="display: none;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                    Copy to Clipboard
-                </button>
-                <button id="export-download-file" class="btn btn-primary" style="display: none;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download File
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Configuration (load first) -->
     <!-- Try to load local config, fall back to example if not found -->
     <script src="config.local.js" onerror="this.onerror=null; this.src='config.example.js';"></script>
@@ -1367,6 +1409,7 @@
     <script src="js/maps-api.js?v=2.8"></script>
     <script src="js/workload-analyzer.js?v=2.8"></script>
     <script src="js/templates.js?v=2.8"></script>
+    <script src="js/export-templates.js?v=1.0"></script>
     <script src="js/event-list-export.js?v=1.2"></script>
 
     <!-- Initialize App -->

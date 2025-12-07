@@ -11,6 +11,7 @@ class GPSAdminApp {
         this.calculator = new WorkloadCalculator(this.eventProcessor);
         this.renderer = new RenderEngine(this.calculator, this.eventProcessor);
         this.eventListExporter = window.EventListExporter ? new EventListExporter(this.eventProcessor) : null;
+        this.exportTemplatesManager = window.ExportTemplatesManager ? new ExportTemplatesManager() : null;
 
         // Load data
         const savedData = this.dataManager.loadData();
@@ -45,7 +46,10 @@ class GPSAdminApp {
         // Export helpers
         this.exportSearchTimeout = null;
         this.exportPreview = null;
-        this.exportFormat = 'text';
+        this.exportFormat = 'csv';
+        this.hasInitializedExportView = false;
+        this.pendingExportReset = false;
+        this.selectedExportTemplateId = null;
         
         this.initMockData();
     }
@@ -369,7 +373,8 @@ class GPSAdminApp {
         if (exportEventListBtn) {
             exportEventListBtn.addEventListener('click', () => {
                 console.log('📤 Export event list button clicked');
-                this.showExportEventListModal();
+                this.pendingExportReset = true;
+                this.openExportView();
             });
         }
 
@@ -413,6 +418,14 @@ class GPSAdminApp {
         if (addSortLevelBtn) {
             addSortLevelBtn.addEventListener('click', () => {
                 this.addSortLevel();
+            });
+        }
+
+        const exportFormatSelect = document.getElementById('export-format');
+        if (exportFormatSelect) {
+            exportFormatSelect.addEventListener('change', () => {
+                this.exportFormat = exportFormatSelect.value || 'csv';
+                this.updateExportPreviewVisibility(this.exportFormat);
             });
         }
 
@@ -486,6 +499,9 @@ class GPSAdminApp {
             });
         }
 
+        // Export presets
+        this.setupExportTemplateControls();
+
         // Multi-event scheduling button
         const multiEventBtn = document.getElementById('multi-event-btn');
         if (multiEventBtn) {
@@ -511,7 +527,7 @@ class GPSAdminApp {
      */
     getViewFromHash() {
         const hash = window.location.hash.slice(1); // Remove '#'
-        const validViews = ['dashboard', 'calendar', 'templates', 'analytics', 'settings'];
+        const validViews = ['dashboard', 'calendar', 'templates', 'analytics', 'settings', 'export'];
         return validViews.includes(hash) ? hash : null;
     }
 
@@ -567,6 +583,9 @@ class GPSAdminApp {
                 break;
             case 'templates':
                 this.renderer.renderTemplates(this.state, this.templatesManager);
+                break;
+            case 'export':
+                this.renderExportView();
                 break;
         }
     }
@@ -3022,12 +3041,16 @@ class GPSAdminApp {
     /**
      * Show export event list modal
      */
-    showExportEventListModal() {
+    openExportView() {
         if (!this.eventListExporter) {
             alert('Event list exporter is not available.');
             return;
         }
 
+        this.switchView('export');
+    }
+
+    prepareExportDefaults(autoGenerate = false) {
         // Set default date range to current month
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -3051,7 +3074,8 @@ class GPSAdminApp {
         
         document.getElementById('export-include-time').checked = true;
         document.getElementById('export-include-location').checked = false;
-        document.getElementById('export-format').value = 'text';
+        document.getElementById('export-format').value = 'csv';
+        this.exportFormat = 'csv';
 
         // Reset preview section
         document.getElementById('export-preview-section').style.display = 'none';
@@ -3059,10 +3083,372 @@ class GPSAdminApp {
         document.getElementById('export-copy-to-clipboard').style.display = 'none';
         document.getElementById('export-download-file').style.display = 'none';
 
-        Utils.showModal('export-event-list-modal');
-        
-        // Ensure grouping options are updated after modal is shown
+        // Ensure grouping options are updated after reset
         this.updateGroupingOptions();
+        this.updateExportPreviewVisibility(this.exportFormat);
+
+        this.renderExportTemplates();
+        const appliedPreset = this.applyPreferredExportTemplate(autoGenerate);
+
+        if (autoGenerate && !appliedPreset) {
+            this.generateExportPreview();
+        }
+    }
+
+    renderExportView() {
+        if (!this.eventListExporter) return;
+
+        if (this.pendingExportReset || !this.hasInitializedExportView) {
+            this.prepareExportDefaults(true);
+            this.hasInitializedExportView = true;
+            this.pendingExportReset = false;
+            return;
+        }
+
+        // If returning to the view without a preview, generate one
+        if (!this.exportPreview) {
+            this.generateExportPreview();
+        }
+    }
+
+    updateExportPreviewVisibility(format) {
+        const textPanel = document.getElementById('export-text-panel');
+        const tablePanel = document.getElementById('export-table-panel');
+        if (textPanel) {
+            textPanel.style.display = format === 'text' ? 'flex' : 'none';
+        }
+        if (tablePanel) {
+            tablePanel.style.display = format === 'csv' ? 'flex' : 'none';
+        }
+    }
+
+    /**
+     * Populate preset dropdown
+     */
+    renderExportTemplates(selectedId = null) {
+        if (!this.exportTemplatesManager) return;
+
+        const select = document.getElementById('export-template-select');
+        if (!select) return;
+
+        const templates = this.exportTemplatesManager.list();
+        const currentSelection = selectedId || this.selectedExportTemplateId;
+        select.innerHTML = '';
+
+        const noneOption = document.createElement('option');
+        noneOption.value = '';
+        noneOption.textContent = 'No preset';
+        select.appendChild(noneOption);
+
+        templates.forEach(tpl => {
+            const option = document.createElement('option');
+            option.value = tpl.id;
+            option.textContent = tpl.isDefault ? `${tpl.name} • Default` : tpl.name;
+            select.appendChild(option);
+        });
+
+        if (currentSelection) {
+            select.value = currentSelection;
+        } else if (templates.length && this.exportTemplatesManager.getDefaultTemplateId()) {
+            select.value = this.exportTemplatesManager.getDefaultTemplateId();
+            this.selectedExportTemplateId = select.value || null;
+        }
+
+        this.selectedExportTemplateId = select.value || null;
+
+        if (this.selectedExportTemplateId) {
+            const tpl = this.exportTemplatesManager.getTemplateById(this.selectedExportTemplateId);
+            if (tpl) {
+                this.populateExportTemplateFields(tpl);
+            }
+        }
+
+        this.updateExportTemplateButtons();
+    }
+
+    /**
+     * Wire up preset controls
+     */
+    setupExportTemplateControls() {
+        if (!this.exportTemplatesManager) return;
+
+        const select = document.getElementById('export-template-select');
+        const saveBtn = document.getElementById('export-template-save');
+        const updateBtn = document.getElementById('export-template-update');
+        const deleteBtn = document.getElementById('export-template-delete');
+        const applyBtn = document.getElementById('export-template-apply');
+        const defaultBtn = document.getElementById('export-template-default');
+
+        if (select) {
+            select.addEventListener('change', (e) => {
+                const id = e.target.value || null;
+                this.selectedExportTemplateId = id || null;
+                if (id) {
+                    const tpl = this.exportTemplatesManager.getTemplateById(id);
+                    if (tpl) {
+                        this.populateExportTemplateFields(tpl);
+                    }
+                } else {
+                    this.populateExportTemplateFields(null);
+                }
+                this.updateExportTemplateButtons();
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.handleSaveExportTemplate(false));
+        }
+
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => this.handleSaveExportTemplate(true));
+        }
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => this.handleDeleteExportTemplate());
+        }
+
+        if (applyBtn) {
+            applyBtn.addEventListener('click', () => this.applyExportTemplateById(this.selectedExportTemplateId));
+        }
+
+        if (defaultBtn) {
+            defaultBtn.addEventListener('click', () => this.handleToggleDefaultTemplate());
+        }
+
+        this.renderExportTemplates();
+    }
+
+    updateExportTemplateButtons() {
+        const hasSelection = !!this.selectedExportTemplateId;
+        const applyBtn = document.getElementById('export-template-apply');
+        const updateBtn = document.getElementById('export-template-update');
+        const deleteBtn = document.getElementById('export-template-delete');
+        const defaultBtn = document.getElementById('export-template-default');
+
+        if (applyBtn) applyBtn.disabled = !hasSelection;
+        if (updateBtn) updateBtn.disabled = !hasSelection;
+        if (deleteBtn) deleteBtn.disabled = !hasSelection;
+
+        if (defaultBtn) {
+            const tpl = hasSelection && this.exportTemplatesManager
+                ? this.exportTemplatesManager.getTemplateById(this.selectedExportTemplateId)
+                : null;
+            defaultBtn.disabled = !hasSelection;
+            defaultBtn.textContent = tpl && tpl.isDefault ? 'Unset default' : 'Set default';
+        }
+    }
+
+    handleSaveExportTemplate(updateExisting = false) {
+        if (!this.exportTemplatesManager) return;
+
+        const nameInput = document.getElementById('export-template-name');
+        const includeDatesCheckbox = document.getElementById('export-template-include-dates');
+
+        if (!nameInput || !includeDatesCheckbox) return;
+
+        const name = (nameInput.value || '').trim();
+        if (!name) {
+            alert('Please name your preset before saving.');
+            return;
+        }
+
+        const payload = {
+            id: updateExisting ? this.selectedExportTemplateId : undefined,
+            name,
+            includeDateRange: includeDatesCheckbox.checked,
+            options: this.getCurrentExportTemplateOptions(),
+        };
+
+        const saved = this.exportTemplatesManager.save(payload);
+        this.selectedExportTemplateId = saved.id;
+        this.renderExportTemplates(saved.id);
+        this.populateExportTemplateFields(saved);
+        this.applyExportTemplate(saved, false);
+        alert(`Preset "${saved.name}" saved.`);
+    }
+
+    handleDeleteExportTemplate() {
+        if (!this.exportTemplatesManager || !this.selectedExportTemplateId) return;
+        const template = this.exportTemplatesManager.getTemplateById(this.selectedExportTemplateId);
+        if (!template) return;
+
+        const confirmed = confirm(`Delete preset "${template.name}"?`);
+        if (!confirmed) return;
+
+        this.exportTemplatesManager.delete(template.id);
+        this.selectedExportTemplateId = null;
+        this.renderExportTemplates();
+        this.populateExportTemplateFields(null);
+    }
+
+    handleToggleDefaultTemplate() {
+        if (!this.exportTemplatesManager || !this.selectedExportTemplateId) return;
+        const template = this.exportTemplatesManager.getTemplateById(this.selectedExportTemplateId);
+        if (!template) return;
+
+        this.exportTemplatesManager.setDefault(template.isDefault ? null : template.id);
+        this.renderExportTemplates(template.id);
+    }
+
+    applyPreferredExportTemplate(withPreview = false) {
+        if (!this.exportTemplatesManager) return false;
+        const preferred = this.exportTemplatesManager.getPreferred();
+        if (!preferred) return false;
+        this.selectedExportTemplateId = preferred.id;
+        this.populateExportTemplateFields(preferred);
+        this.applyExportTemplate(preferred, withPreview);
+        this.renderExportTemplates(preferred.id);
+        return true;
+    }
+
+    applyExportTemplateById(templateId, withPreview = true) {
+        if (!templateId || !this.exportTemplatesManager) return;
+        const template = this.exportTemplatesManager.getTemplateById(templateId);
+        if (template) {
+            this.selectedExportTemplateId = template.id;
+            this.applyExportTemplate(template, withPreview);
+            this.renderExportTemplates(template.id);
+        }
+    }
+
+    applyExportTemplate(template, withPreview = true) {
+        if (!template) return;
+        const opts = template.options || {};
+
+        if (template.includeDateRange) {
+            const startInput = document.getElementById('export-start-date');
+            const endInput = document.getElementById('export-end-date');
+            if (startInput) startInput.value = this.formatInputDate(opts.startDate);
+            if (endInput) endInput.value = this.formatInputDate(opts.endDate);
+        }
+
+        const includeTime = document.getElementById('export-include-time');
+        const includeLocation = document.getElementById('export-include-location');
+        const workOnly = document.getElementById('export-work-events-only');
+        const searchInput = document.getElementById('export-search-term');
+        const formatSelect = document.getElementById('export-format');
+
+        if (includeTime) includeTime.checked = !!opts.includeTime;
+        if (includeLocation) includeLocation.checked = !!opts.includeLocation;
+        if (workOnly) workOnly.checked = opts.workEventsOnly !== false;
+        if (searchInput) searchInput.value = opts.searchTerm || '';
+
+        this.setGroupLevels(opts.groupLevels || []);
+        this.setSortLevels(opts.sortLevels || []);
+
+        const formatValue = opts.format || 'csv';
+        if (formatSelect) {
+            formatSelect.value = formatValue;
+        }
+        this.exportFormat = formatValue;
+        this.updateExportPreviewVisibility(formatValue);
+        this.exportTemplatesManager.markLastUsed(template.id);
+
+        if (withPreview) {
+            this.generateExportPreview();
+        }
+    }
+
+    populateExportTemplateFields(template) {
+        const nameInput = document.getElementById('export-template-name');
+        const includeDatesCheckbox = document.getElementById('export-template-include-dates');
+        if (!nameInput || !includeDatesCheckbox) return;
+
+        if (template) {
+            nameInput.value = template.name || '';
+            includeDatesCheckbox.checked = template.includeDateRange !== false;
+        } else {
+            nameInput.value = '';
+            includeDatesCheckbox.checked = true;
+        }
+    }
+
+    getCurrentExportTemplateOptions() {
+        const startDateInput = document.getElementById('export-start-date');
+        const endDateInput = document.getElementById('export-end-date');
+        const includeTime = document.getElementById('export-include-time');
+        const includeLocation = document.getElementById('export-include-location');
+        const workOnly = document.getElementById('export-work-events-only');
+        const searchInput = document.getElementById('export-search-term');
+        const formatSelect = document.getElementById('export-format');
+
+        return {
+            startDate: startDateInput ? startDateInput.value : '',
+            endDate: endDateInput ? endDateInput.value : '',
+            includeTime: includeTime ? includeTime.checked : false,
+            includeLocation: includeLocation ? includeLocation.checked : false,
+            workEventsOnly: workOnly ? workOnly.checked : true,
+            searchTerm: searchInput ? searchInput.value : '',
+            groupLevels: this.getGroupLevels(),
+            sortLevels: this.getSortLevels(),
+            format: formatSelect ? formatSelect.value : 'csv',
+        };
+    }
+
+    setGroupLevels(levels = []) {
+        this.resetGroupLevels();
+        const container = document.getElementById('group-levels-container');
+        if (!container) return;
+
+        const selects = container.querySelectorAll('.group-level-select');
+        if (selects.length && levels.length === 0) {
+            selects[0].value = 'none';
+            selects[0].dispatchEvent(new Event('change'));
+        }
+
+        levels.forEach((level, index) => {
+            if (index > 0) {
+                this.addGroupLevel();
+            }
+            const currentSelects = container.querySelectorAll('.group-level-select');
+            const select = currentSelects[index];
+            if (select) {
+                select.value = level;
+                select.dispatchEvent(new Event('change'));
+            }
+        });
+
+        this.updateGroupLevelButtons();
+        this.updateGroupingOptions();
+    }
+
+    setSortLevels(levels = []) {
+        this.resetSortLevels();
+        const container = document.getElementById('sort-levels-container');
+        if (!container) return;
+
+        const toApply = levels.length ? levels : [{ sortBy: 'time', sortOrder: 'asc' }];
+        toApply.forEach((level, index) => {
+            if (index > 0) {
+                this.addSortLevel();
+            }
+            const selects = container.querySelectorAll('.sort-level-select');
+            const select = selects[index];
+            if (select) {
+                const value = `${level.sortBy}-${level.sortOrder}`;
+                select.value = value;
+                select.dispatchEvent(new Event('change'));
+            }
+        });
+
+        this.updateSortLevelButtons();
+    }
+
+    formatInputDate(value) {
+        if (!value) return '';
+        if (value instanceof Date) {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0');
+            const day = String(value.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // If already in YYYY-MM-DD format, return as-is
+        if (typeof value === 'string' && value.includes('-') && value.length >= 10) {
+            return value.substring(0, 10);
+        }
+
+        return '';
     }
 
     /**
@@ -3673,7 +4059,7 @@ class GPSAdminApp {
             const includeLocation = document.getElementById('export-include-location').checked;
             const groupLevels = this.getGroupLevels();
             const sortConfig = this.getSortConfig();
-            const format = document.getElementById('export-format').value;
+            const format = document.getElementById('export-format').value || 'csv';
             const workEventsOnly = document.getElementById('export-work-events-only').checked;
             const searchTerm = document.getElementById('export-search-term').value;
 
@@ -3726,21 +4112,23 @@ class GPSAdminApp {
             };
 
             const preview = this.eventListExporter.buildPreview(eventsToExport, exportOptions);
+            this.exportFormat = format;
 
             // Hide loading, show preview
             document.getElementById('export-loading').style.display = 'none';
             document.getElementById('export-generate-preview').disabled = false;
 
             // Display preview
-            const previewBody = format === 'csv' ? preview.csv : preview.text;
-            document.getElementById('export-preview').textContent = previewBody;
-            this.renderExportGroups(preview.groups);
+            const previewEl = document.getElementById('export-preview');
+            if (previewEl) {
+                previewEl.textContent = preview.text || '';
+            }
             this.renderExportTable(preview.rows, includeTime, includeLocation);
 
-            document.getElementById('export-event-count').textContent = `${preview.count} event${preview.count !== 1 ? 's' : ''}`;
             document.getElementById('export-preview-section').style.display = 'block';
             document.getElementById('export-copy-to-clipboard').style.display = 'inline-flex';
             document.getElementById('export-download-file').style.display = 'inline-flex';
+            this.updateExportPreviewVisibility(format);
 
             // Store preview for later use
             this.exportPreview = preview;
@@ -3752,20 +4140,6 @@ class GPSAdminApp {
             document.getElementById('export-generate-preview').disabled = false;
             alert('Error generating preview: ' + (error.message || 'Unknown error'));
         }
-    }
-
-    renderExportGroups(groups = []) {
-        const container = document.getElementById('export-group-summary');
-        if (!container) return;
-
-        if (!groups.length) {
-            container.innerHTML = '';
-            return;
-        }
-
-        container.innerHTML = groups.map(group => {
-            return `<span class="badge">${group.label} (${group.count})</span>`;
-        }).join('');
     }
 
     renderExportTable(rows = [], includeTime = false, includeLocation = false) {

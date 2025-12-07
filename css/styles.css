@@ -3299,6 +3299,49 @@ label {
     height: auto;
 }
 
+/* Export page layout */
+.export-layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 1024px) {
+    .export-layout {
+        flex-direction: column;
+    }
+}
+
+.export-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
+}
+
+.export-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
+.form-actions {
+    justify-content: flex-start;
+}
+
+.template-actions {
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.export-preview-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
 /* Export preview enhancements */
 .export-preview-section {
     border: 1px solid var(--gray-200);
@@ -3314,18 +3357,6 @@ label {
     justify-content: space-between;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
-}
-
-.export-group-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-sm);
-}
-
-.export-group-summary .badge {
-    background: var(--gray-100);
-    color: var(--gray-700);
 }
 
 .export-preview-grid {
