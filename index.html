@@ -1268,6 +1268,12 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Search &amp; Filter</label>
+                        <input type="text" id="export-search-term" class="input" placeholder="Filter by client, pet, service, or location">
+                        <small class="form-help">Applied to both text and CSV previews.</small>
+                    </div>
+
+                    <div class="form-group">
                         <label for="export-format">Export Format</label>
                         <select id="export-format" class="select">
                             <option value="text">Text List</option>
@@ -1277,13 +1283,41 @@
                 </form>
 
                 <!-- Preview Section -->
-                <div id="export-preview-section" style="margin-top: var(--spacing-lg); display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
-                        <label style="font-weight: 600; color: var(--gray-700);">Preview:</label>
+                <div id="export-preview-section" class="export-preview-section" style="margin-top: var(--spacing-lg); display: none;">
+                    <div class="export-preview-header">
+                        <div>
+                            <label style="font-weight: 600; color: var(--gray-700);">Preview</label>
+                            <div id="export-group-summary" class="export-group-summary"></div>
+                        </div>
                         <span id="export-event-count" class="badge" style="background: var(--primary-500); color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem;"></span>
                     </div>
-                    <div id="export-preview" style="background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: var(--spacing-md); max-height: 300px; overflow-y: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.875rem; white-space: pre-wrap; line-height: 1.6;">
-                        <!-- Preview will be generated here -->
+                    <div class="export-preview-grid">
+                        <div class="export-preview-panel">
+                            <div class="export-preview-panel__title">Formatted Text</div>
+                            <div id="export-preview" class="export-preview-box">
+                                <!-- Preview will be generated here -->
+                            </div>
+                        </div>
+                        <div class="export-preview-panel">
+                            <div class="export-preview-panel__title">CSV / Sortable Table</div>
+                            <div class="export-table-wrapper">
+                                <table class="export-table">
+                                    <thead>
+                                        <tr>
+                                            <th data-sort="date">Date</th>
+                                            <th data-sort="client">Client</th>
+                                            <th data-sort="service">Service</th>
+                                            <th>Duration</th>
+                                            <th data-sort="time">Time</th>
+                                            <th>Location</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="export-preview-table-body">
+                                        <!-- Rows injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

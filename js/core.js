@@ -41,6 +41,11 @@ class GPSAdminApp {
         // Multi-event scheduling state
         this.multiEventCurrentStep = 1;
         this.pendingMultiEvents = null;
+
+        // Export helpers
+        this.exportSearchTimeout = null;
+        this.exportPreview = null;
+        this.exportFormat = 'text';
         
         this.initMockData();
     }
@@ -446,6 +451,16 @@ class GPSAdminApp {
             });
         }
 
+        const exportSearchInput = document.getElementById('export-search-term');
+        if (exportSearchInput) {
+            exportSearchInput.addEventListener('input', () => {
+                if (this.exportSearchTimeout) {
+                    clearTimeout(this.exportSearchTimeout);
+                }
+                this.exportSearchTimeout = setTimeout(() => this.generateExportPreview(), 250);
+            });
+        }
+
         // Export copy to clipboard button
         const exportCopyBtn = document.getElementById('export-copy-to-clipboard');
         if (exportCopyBtn) {
@@ -459,6 +474,15 @@ class GPSAdminApp {
         if (exportDownloadBtn) {
             exportDownloadBtn.addEventListener('click', () => {
                 this.downloadExportFile();
+            });
+        }
+
+        const exportTable = document.querySelector('.export-table');
+        if (exportTable) {
+            exportTable.addEventListener('click', (e) => {
+                const header = e.target.closest('th[data-sort]');
+                if (!header) return;
+                this.handleExportTableSort(header.dataset.sort);
             });
         }
 
@@ -3651,6 +3675,7 @@ class GPSAdminApp {
             const sortConfig = this.getSortConfig();
             const format = document.getElementById('export-format').value;
             const workEventsOnly = document.getElementById('export-work-events-only').checked;
+            const searchTerm = document.getElementById('export-search-term').value;
 
             // Build groupBy string from levels (e.g., "client-service-date") or 'none' if empty
             const groupBy = groupLevels.length > 0 ? groupLevels.join('-') : 'none';
@@ -3696,32 +3721,23 @@ class GPSAdminApp {
                 groupBy,
                 groupSort,
                 eventSort,
-                workEventsOnly
+                workEventsOnly,
+                searchTerm
             };
 
-            let preview;
-            if (format === 'csv') {
-                preview = this.eventListExporter.generateCSV(eventsToExport, exportOptions);
-            } else {
-                preview = this.eventListExporter.generateTextList(eventsToExport, exportOptions);
-            }
-
-            // Count events for display
-            const filteredEvents = eventsToExport.filter(event => {
-                if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) return false;
-                const eventDate = new Date(event.start);
-                if (startDate && eventDate < startDate) return false;
-                if (endDate && eventDate > endDate) return false;
-                return true;
-            });
+            const preview = this.eventListExporter.buildPreview(eventsToExport, exportOptions);
 
             // Hide loading, show preview
             document.getElementById('export-loading').style.display = 'none';
             document.getElementById('export-generate-preview').disabled = false;
 
             // Display preview
-            document.getElementById('export-preview').textContent = preview;
-            document.getElementById('export-event-count').textContent = `${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''}`;
+            const previewBody = format === 'csv' ? preview.csv : preview.text;
+            document.getElementById('export-preview').textContent = previewBody;
+            this.renderExportGroups(preview.groups);
+            this.renderExportTable(preview.rows, includeTime, includeLocation);
+
+            document.getElementById('export-event-count').textContent = `${preview.count} event${preview.count !== 1 ? 's' : ''}`;
             document.getElementById('export-preview-section').style.display = 'block';
             document.getElementById('export-copy-to-clipboard').style.display = 'inline-flex';
             document.getElementById('export-download-file').style.display = 'inline-flex';
@@ -3736,6 +3752,67 @@ class GPSAdminApp {
             document.getElementById('export-generate-preview').disabled = false;
             alert('Error generating preview: ' + (error.message || 'Unknown error'));
         }
+    }
+
+    renderExportGroups(groups = []) {
+        const container = document.getElementById('export-group-summary');
+        if (!container) return;
+
+        if (!groups.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = groups.map(group => {
+            return `<span class="badge">${group.label} (${group.count})</span>`;
+        }).join('');
+    }
+
+    renderExportTable(rows = [], includeTime = false, includeLocation = false) {
+        const tbody = document.getElementById('export-preview-table-body');
+        if (!tbody) return;
+
+        if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-muted">No events match this filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map(row => {
+            return `
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">${row.dateLabel}</div>
+                        ${row.groupPath && row.groupPath.length ? `<div class="text-muted" style="font-size: 0.8rem;">${row.groupPath.join(' / ')}</div>` : ''}
+                    </td>
+                    <td>${row.client}</td>
+                    <td>${row.service}</td>
+                    <td>${row.durationMinutes}m</td>
+                    <td>${includeTime ? row.timeLabel || '—' : '—'}</td>
+                    <td>${includeLocation ? (row.location || '—') : '—'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    handleExportTableSort(field) {
+        const sortableFields = ['date', 'client', 'service', 'time'];
+        if (!sortableFields.includes(field)) return;
+
+        const primarySort = document.querySelector('.sort-level-select');
+        if (!primarySort) return;
+
+        const current = primarySort.value || '';
+        const isSameField = current.startsWith(field);
+        const nextDirection = isSameField && current.endsWith('asc') ? 'desc' : 'asc';
+        const candidate = `${field}-${nextDirection}`;
+
+        // Update select value if option exists
+        const hasOption = Array.from(primarySort.options).some(opt => opt.value === candidate);
+        if (!hasOption) return;
+
+        primarySort.value = candidate;
+        primarySort.dispatchEvent(new Event('change'));
+        this.generateExportPreview();
     }
 
     /**
@@ -3772,7 +3849,8 @@ class GPSAdminApp {
         if (!this.eventListExporter || !this.exportPreview) return;
 
         try {
-            const success = await this.eventListExporter.copyToClipboard(this.exportPreview);
+            const content = this.exportFormat === 'csv' ? this.exportPreview.csv : this.exportPreview.text;
+            const success = content ? await this.eventListExporter.copyToClipboard(content) : false;
 
             if (success) {
                 // Visual feedback
@@ -3801,6 +3879,9 @@ class GPSAdminApp {
         if (!this.eventListExporter || !this.exportPreview) return;
 
         try {
+            const content = this.exportFormat === 'csv' ? this.exportPreview.csv : this.exportPreview.text;
+            if (!content) return;
+
             // Generate filename
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
@@ -3809,7 +3890,7 @@ class GPSAdminApp {
             const filename = `work-events-${dateStr}.${extension}`;
 
             // Download file
-            this.eventListExporter.downloadAsFile(this.exportPreview, filename, mimeType);
+            this.eventListExporter.downloadAsFile(content, filename, mimeType);
 
             // Visual feedback
             const btn = document.getElementById('export-download-file');

@@ -260,31 +260,31 @@ class EventListExporter {
     }
 
     /**
-     * Generate text list of work events
-     * @param {Array} events - Array of all events
-     * @param {Object} options - Export options
-     * @returns {string} Formatted text list
+     * Normalize and filter events based on options shared by text/csv/table exports
      */
-    generateTextList(events, options = {}) {
+    prepareEvents(events, options = {}) {
         const {
             startDate = null,
             endDate = null,
             includeTime = false,
             includeLocation = false,
-            groupBy = 'date', // 'none', 'date', 'client', 'service', 'week', 'month', or combinations like 'client-date'
-            groupSort = { sortBy: 'date', sortOrder: 'asc' }, // How to sort groups
-            eventSort = [{ sortBy: 'time', sortOrder: 'asc' }], // How to sort events (array of levels)
-            workEventsOnly = true
+            groupBy = 'date',
+            groupSort = { sortBy: 'date', sortOrder: 'asc' },
+            eventSort = [{ sortBy: 'time', sortOrder: 'asc' }],
+            workEventsOnly = true,
+            searchTerm = ''
         } = options;
+
+        const normalizedEventSort = Array.isArray(eventSort) ? eventSort : [eventSort];
+        const normalizedGroupLevels = groupBy.split('-').filter(level => level && level !== 'none');
+        const normalizedSearch = searchTerm ? searchTerm.toLowerCase() : '';
 
         // Filter events
         let filteredEvents = events.filter(event => {
-            // Filter by work events if enabled
             if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) {
                 return false;
             }
 
-            // Filter by date range if specified
             const eventDate = new Date(event.start);
 
             if (startDate && eventDate < startDate) {
@@ -295,17 +295,56 @@ class EventListExporter {
                 return false;
             }
 
+            if (normalizedSearch) {
+                const haystack = [
+                    event.title,
+                    this.extractClientName(event.title),
+                    this.formatServiceType(event),
+                    event.location
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                return haystack.includes(normalizedSearch);
+            }
+
             return true;
         });
 
-        // Filter out overnight events not on their start date
+        // Filter out overnight end markers and keep start date only
         filteredEvents = filteredEvents.filter(event => {
             const eventDate = new Date(event.start);
             return this.shouldIncludeEventOnDate(event, eventDate);
         });
 
         // Sort events using multi-level sorting
-        filteredEvents = this.sortEventsMultiLevel(filteredEvents, eventSort);
+        filteredEvents = this.sortEventsMultiLevel(filteredEvents, normalizedEventSort);
+
+        return {
+            events: filteredEvents,
+            includeTime,
+            includeLocation,
+            groupLevels: normalizedGroupLevels,
+            groupSort,
+            eventSort: normalizedEventSort,
+            workEventsOnly
+        };
+    }
+
+    /**
+     * Generate text list of work events
+     * @param {Array} events - Array of all events
+     * @param {Object} options - Export options
+     * @returns {string} Formatted text list
+     */
+    generateTextList(events, options = {}) {
+        const {
+            events: filteredEvents,
+            includeTime,
+            includeLocation,
+            groupLevels,
+            groupSort,
+            eventSort,
+            workEventsOnly
+        } = this.prepareEvents(events, options);
 
         if (filteredEvents.length === 0) {
             return 'No events found in the selected date range.';
@@ -325,8 +364,6 @@ class EventListExporter {
         output += `${'='.repeat(50)}\n\n`;
 
         // Check if groupBy contains multiple levels (e.g., "client-service-date")
-        const groupLevels = groupBy.split('-').filter(level => level && level !== 'none');
-        
         // Always use dynamic grouping for consistency - it handles all cases
         if (groupLevels.length > 0) {
             output += this.generateDynamicGrouping(filteredEvents, groupLevels, includeTime, includeLocation, groupSort, eventSort);
@@ -881,40 +918,12 @@ class EventListExporter {
      * @returns {string} CSV formatted string
      */
     generateCSV(events, options = {}) {
-        const {
-            startDate = null,
-            endDate = null,
-            workEventsOnly = true,
-            sortBy = 'date',
-            secondarySort = null,
-            sortOrder = 'asc',
-            includeLocation = false
-        } = options;
-
-        // Filter events
-        let filteredEvents = events.filter(event => {
-            if (workEventsOnly && !this.eventProcessor.isWorkEvent(event)) {
-                return false;
-            }
-
-            const eventDate = new Date(event.start);
-
-            if (startDate && eventDate < startDate) {
-                return false;
-            }
-
-            if (endDate && eventDate > endDate) {
-                return false;
-            }
-
-            return true;
-        });
-
-        // Sort events using combined sorting
-        filteredEvents = this.sortEvents(filteredEvents, sortBy, secondarySort, sortOrder);
+        const prepared = this.prepareEvents(events, { ...options, includeLocation: options.includeLocation });
+        let filteredEvents = prepared.events;
+        const includeLocation = prepared.includeLocation;
 
         // CSV header
-        let csv = includeLocation 
+        let csv = includeLocation
             ? 'Date,Time,Client/Pet,Service Type,Duration,Location\n'
             : 'Date,Time,Client/Pet,Service Type,Duration\n';
 
@@ -967,6 +976,74 @@ class EventListExporter {
         }
 
         return value;
+    }
+
+    /**
+    * Build structured preview for UI (text + csv + rows + groups)
+    */
+    buildPreview(events, options = {}) {
+        const prepared = this.prepareEvents(events, options);
+        const text = this.generateTextList(events, options);
+        const csv = this.generateCSV(events, options);
+        const rows = this.buildRows(prepared.events, options);
+        const groups = this.buildGroupSummaries(rows, prepared.groupLevels);
+
+        return {
+            text,
+            csv,
+            rows,
+            groups,
+            count: rows.length
+        };
+    }
+
+    buildRows(events, options = {}) {
+        const includeTime = options.includeTime ?? false;
+        const includeLocation = options.includeLocation ?? false;
+        const groupLevels = (options.groupBy || '').split('-').filter(level => level && level !== 'none');
+
+        return events.map((event, index) => {
+            const start = new Date(event.start);
+            const end = new Date(event.end);
+            const durationMinutes = Math.round((end - start) / (1000 * 60));
+
+            return {
+                id: event.id || `row-${index}-${start.toISOString()}`,
+                dateLabel: this.formatDate(start),
+                timeLabel: includeTime ? this.formatTime(start) : '',
+                client: this.extractClientName(event.title),
+                service: this.formatServiceType(event),
+                durationMinutes,
+                location: includeLocation ? (event.location || '') : '',
+                groupPath: groupLevels.map(level => this.getGroupKey(event, level))
+            };
+        });
+    }
+
+    buildGroupSummaries(rows, groupLevels = []) {
+        if (!rows || rows.length === 0) return [];
+
+        if (!groupLevels.length) {
+            const totalDuration = rows.reduce((sum, row) => sum + row.durationMinutes, 0);
+            return [{ key: 'all', label: 'All events', count: rows.length, totalDurationMinutes: totalDuration }];
+        }
+
+        const groups = new Map();
+
+        rows.forEach(row => {
+            const path = groupLevels.map((_, idx) => row.groupPath[idx] || 'Other');
+            const key = path.join(' / ');
+            const current = groups.get(key) || { rows: [] };
+            current.rows.push(row);
+            groups.set(key, current);
+        });
+
+        return Array.from(groups.entries()).map(([key, value]) => ({
+            key,
+            label: key,
+            count: value.rows.length,
+            totalDurationMinutes: value.rows.reduce((sum, row) => sum + row.durationMinutes, 0)
+        }));
     }
 
     /**

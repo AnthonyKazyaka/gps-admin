@@ -3298,3 +3298,99 @@ label {
     padding: 6px 12px;
     height: auto;
 }
+
+/* Export preview enhancements */
+.export-preview-section {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+}
+
+.export-preview-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.export-group-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.export-group-summary .badge {
+    background: var(--gray-100);
+    color: var(--gray-700);
+}
+
+.export-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.export-preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.export-preview-panel__title {
+    font-weight: 600;
+    color: var(--gray-700);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.export-preview-box {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    max-height: 320px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.export-table-wrapper {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.export-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.export-table th,
+.export-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.export-table th {
+    background: var(--gray-50);
+    font-weight: 700;
+    cursor: default;
+}
+
+.export-table th[data-sort] {
+    cursor: pointer;
+}
+
+.export-table tbody tr:hover {
+    background: var(--gray-50);
+}
